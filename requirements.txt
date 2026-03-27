@@ -1,0 +1,7 @@
+geopandas
+osmium
+pandas
+PyMySQL
+pyogrio
+pyproj
+shapely

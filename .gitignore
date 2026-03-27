@@ -1,0 +1,7 @@
+/scripts/__pycache__
+/data
+/.venv
+/public/api/config.local.php
+/czech-republic-260324.osm.features.pkl
+/AgriculturalArea.gpkg
+/czech-republic-260324.osm.pbf

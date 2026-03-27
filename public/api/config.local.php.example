@@ -1,0 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'db_host' => '127.0.0.1',
+    'db_port' => '3306',
+    'db_name' => 'meadow_finder',
+    'db_user' => 'replace_me',
+    'db_password' => 'replace_me',
+    'db_table' => 'meadows', // optional, only for direct import
+    'max_results' => 600,
+];
