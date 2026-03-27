@@ -22,7 +22,23 @@ This project builds a meadow finder for the Czech Republic using:
 python -m pip install -r requirements.txt
 ```
 
-## 2. Build the Upload Files
+## 2. Download the Source Data
+
+The large map source files are not included in this repository.
+
+Download these files before running the preprocessing script:
+
+- `AgriculturalArea.gpkg` from [Agricultural Area of Czech Republic](https://geoportal.gov.cz/atom/MZe/AgriculturalArea.gpkg) or the [dataset page](https://data.gov.cz/dataset?iri=https%3A%2F%2Fdata.gov.cz%2Fzdroj%2Fdatov%C3%A9-sady%2F00020478%2Fae813a4158ceedecf2d60b63ed586cad)
+- the Czech Republic OSM extract from [Geofabrik](https://download.geofabrik.de/europe/czech-republic.html) or directly from [dataset page](https://download.geofabrik.de/europe/czech-republic-latest.osm.pbf)
+
+Place both files in the repository root.
+
+The script expects these default filenames:
+
+- `AgriculturalArea.gpkg`
+- `czech-republic-260324.osm.pbf`
+
+## 3. Build the Upload Files
 
 Run a pilot first:
 
@@ -64,7 +80,7 @@ When `--skip-preview` is used, the script skips `meadows_preview.geojson` and re
 
 When `--import` is used, the script truncates the `meadows` table first, imports rows directly into MySQL, still writes the preview and metadata files unless `--skip-preview` is set, and skips the CSV export.
 
-## 3. Create the Database
+## 4. Create the Database
 
 Create the `meadows` table from `database/schema.sql`.
 
@@ -90,7 +106,7 @@ Expected CSV column order:
 16. `max_lng`
 17. `geom_geojson`
 
-## 4. Configure PHP
+## 5. Configure PHP
 
 Copy:
 
@@ -102,7 +118,7 @@ to:
 
 Then fill in your real MySQL credentials.
 
-## 5. Deploy
+## 6. Deploy
 
 Upload the `public/` directory to your PHP hosting and make sure it is served as your web root, or copy its contents into the site root.
 
