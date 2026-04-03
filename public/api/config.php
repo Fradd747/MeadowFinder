@@ -11,6 +11,11 @@ function meadowFinderConfig(): array
         'db_user' => getenv('MEADOW_DB_USER') ?: 'root',
         'db_password' => getenv('MEADOW_DB_PASSWORD') ?: '',
         'max_results' => (int) (getenv('MEADOW_MAX_RESULTS') ?: 600),
+        'google_client_id' => getenv('MEADOW_GOOGLE_CLIENT_ID') ?: '',
+        'google_client_secret' => getenv('MEADOW_GOOGLE_CLIENT_SECRET') ?: '',
+        'oauth_redirect_uri' => getenv('MEADOW_OAUTH_REDIRECT_URI') ?: '',
+        // Optional absolute URL to the app home (e.g. https://example.com/). If empty, derived from SCRIPT_NAME.
+        'app_home_url' => getenv('MEADOW_APP_HOME_URL') ?: '',
     ];
 
     $localConfigFile = __DIR__ . '/config.local.php';

@@ -3,10 +3,17 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/session_bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
 const POLYGON_RESULT_LIMIT = 2500;
+
+/** WGS84 envelope of Czech Republic; keep in sync with app.js and prepare_meadows.py */
+const CZECH_REPUBLIC_WEST = 12.07;
+const CZECH_REPUBLIC_SOUTH = 48.53;
+const CZECH_REPUBLIC_EAST = 18.88;
+const CZECH_REPUBLIC_NORTH = 51.07;
 
 function respondWithError(int $statusCode, string $message): never
 {
@@ -56,7 +63,14 @@ function readStringParam(string $name, string $default): string
 
 function readBbox(): array
 {
-    $bbox = $_GET['bbox'] ?? '12.0,48.4,19.0,51.1';
+    $defaultBbox = sprintf(
+        '%s,%s,%s,%s',
+        CZECH_REPUBLIC_WEST,
+        CZECH_REPUBLIC_SOUTH,
+        CZECH_REPUBLIC_EAST,
+        CZECH_REPUBLIC_NORTH
+    );
+    $bbox = $_GET['bbox'] ?? $defaultBbox;
     if (!is_scalar($bbox)) {
         respondWithError(400, 'Neplatný parametr bbox.');
     }
@@ -79,6 +93,14 @@ function readBbox(): array
         respondWithError(400, 'Hranice bbox jsou neplatné.');
     }
 
+    $west = max($west, CZECH_REPUBLIC_WEST);
+    $south = max($south, CZECH_REPUBLIC_SOUTH);
+    $east = min($east, CZECH_REPUBLIC_EAST);
+    $north = min($north, CZECH_REPUBLIC_NORTH);
+    if ($west >= $east || $south >= $north) {
+        respondWithError(400, 'bbox po oříznutí na ČR nemá platný rozsah.');
+    }
+
     return [$west, $south, $east, $north];
 }
 
@@ -99,7 +121,7 @@ function buildWhereClause(array $where): string
 
 function countMatchingMeadows(PDO $pdo, array $where, array $params): int
 {
-    $sql = 'SELECT COUNT(*) FROM meadows WHERE ' . buildWhereClause($where);
+    $sql = 'SELECT COUNT(*) FROM meadows m WHERE ' . buildWhereClause($where);
     $statement = $pdo->prepare($sql);
     foreach ($params as $key => $value) {
         $statement->bindValue($key, $value);
@@ -155,68 +177,103 @@ try {
     $maxRiver = readFloatParam('maxRiver');
     $minSettlement = readFloatParam('minSettlement');
     $maxSettlement = readFloatParam('maxSettlement');
+    $minBuilding = readFloatParam('minBuilding');
+    $maxBuilding = readFloatParam('maxBuilding');
+    $minLargestFlatPatchShare = readFloatParam('minLargestFlatPatchShare');
+    $minFlatAreaShare = readFloatParam('minFlatAreaShare');
+    $maxTerrainRoughnessP80M = readFloatParam('maxTerrainRoughnessP80M');
 
     $where = [
-        'min_lng <= :east',
-        'max_lng >= :west',
-        'min_lat <= :north',
-        'max_lat >= :south',
+        'm.min_lng <= :east',
+        'm.max_lng >= :west',
+        'm.min_lat <= :north',
+        'm.max_lat >= :south',
+        'm.centroid_lng >= :czWest',
+        'm.centroid_lng <= :czEast',
+        'm.centroid_lat >= :czSouth',
+        'm.centroid_lat <= :czNorth',
     ];
     $params = [
         ':west' => $west,
         ':south' => $south,
         ':east' => $east,
         ':north' => $north,
+        ':czWest' => CZECH_REPUBLIC_WEST,
+        ':czSouth' => CZECH_REPUBLIC_SOUTH,
+        ':czEast' => CZECH_REPUBLIC_EAST,
+        ':czNorth' => CZECH_REPUBLIC_NORTH,
     ];
 
     if ($minArea !== null) {
-        $where[] = 'area_m2 >= :minArea';
+        $where[] = 'm.area_m2 >= :minArea';
         $params[':minArea'] = $minArea;
     }
     if ($maxArea !== null) {
-        $where[] = 'area_m2 <= :maxArea';
+        $where[] = 'm.area_m2 <= :maxArea';
         $params[':maxArea'] = $maxArea;
     }
     if ($minRoad !== null) {
-        $where[] = 'nearest_road_m >= :minRoad';
+        $where[] = 'm.nearest_road_m >= :minRoad';
         $params[':minRoad'] = $minRoad;
     }
     if ($maxRoad !== null) {
-        $where[] = 'nearest_road_m <= :maxRoad';
+        $where[] = 'm.nearest_road_m <= :maxRoad';
         $params[':maxRoad'] = $maxRoad;
     }
     if ($minPath !== null) {
-        $where[] = 'nearest_path_m >= :minPath';
+        $where[] = 'm.nearest_path_m >= :minPath';
         $params[':minPath'] = $minPath;
     }
     if ($maxPath !== null) {
-        $where[] = 'nearest_path_m <= :maxPath';
+        $where[] = 'm.nearest_path_m <= :maxPath';
         $params[':maxPath'] = $maxPath;
     }
     if ($minWater !== null) {
-        $where[] = 'nearest_water_m >= :minWater';
+        $where[] = 'm.nearest_water_m >= :minWater';
         $params[':minWater'] = $minWater;
     }
     if ($maxWater !== null) {
-        $where[] = 'nearest_water_m <= :maxWater';
+        $where[] = 'm.nearest_water_m <= :maxWater';
         $params[':maxWater'] = $maxWater;
     }
     if ($minRiver !== null) {
-        $where[] = 'nearest_river_m >= :minRiver';
+        $where[] = 'm.nearest_river_m >= :minRiver';
         $params[':minRiver'] = $minRiver;
     }
     if ($maxRiver !== null) {
-        $where[] = 'nearest_river_m <= :maxRiver';
+        $where[] = 'm.nearest_river_m <= :maxRiver';
         $params[':maxRiver'] = $maxRiver;
     }
     if ($minSettlement !== null) {
-        $where[] = 'nearest_settlement_m >= :minSettlement';
+        $where[] = 'm.nearest_settlement_m >= :minSettlement';
         $params[':minSettlement'] = $minSettlement;
     }
     if ($maxSettlement !== null) {
-        $where[] = 'nearest_settlement_m <= :maxSettlement';
+        $where[] = 'm.nearest_settlement_m <= :maxSettlement';
         $params[':maxSettlement'] = $maxSettlement;
     }
+    if ($minBuilding !== null) {
+        $where[] = 'm.nearest_building_m >= :minBuilding';
+        $params[':minBuilding'] = $minBuilding;
+    }
+    if ($maxBuilding !== null) {
+        $where[] = 'm.nearest_building_m <= :maxBuilding';
+        $params[':maxBuilding'] = $maxBuilding;
+    }
+    if ($minLargestFlatPatchShare !== null) {
+        $where[] = 'm.largest_flat_patch_share >= :minLargestFlatPatchShare';
+        $params[':minLargestFlatPatchShare'] = $minLargestFlatPatchShare;
+    }
+    if ($minFlatAreaShare !== null) {
+        $where[] = 'm.flat_area_share >= :minFlatAreaShare';
+        $params[':minFlatAreaShare'] = $minFlatAreaShare;
+    }
+    if ($maxTerrainRoughnessP80M !== null) {
+        $where[] = 'm.terrain_roughness_p80_m <= :maxTerrainRoughnessP80M';
+        $params[':maxTerrainRoughnessP80M'] = $maxTerrainRoughnessP80M;
+    }
+
+    $sessionUserId = meadowFinderSessionUserId();
 
     $features = [];
     $totalCount = countMatchingMeadows($pdo, $where, $params);
@@ -230,18 +287,37 @@ try {
             ':latStep' => $latStep,
         ];
 
-        $sql = '
-            SELECT
-                AVG(centroid_lat) AS centroid_lat,
-                AVG(centroid_lng) AS centroid_lng,
-                COUNT(*) AS meadow_count
-            FROM meadows
-            WHERE ' . buildWhereClause($where) . '
-            GROUP BY
-                FLOOR((centroid_lng - :clusterWest) / :lngStep),
-                FLOOR((centroid_lat - :clusterSouth) / :latStep)
-            ORDER BY meadow_count DESC
-        ';
+        if ($sessionUserId !== null) {
+            $clusterParams[':favUser'] = $sessionUserId;
+            $sql = '
+                SELECT
+                    AVG(m.centroid_lat) AS centroid_lat,
+                    AVG(m.centroid_lng) AS centroid_lng,
+                    COUNT(*) AS meadow_count,
+                    MAX(CASE WHEN f.meadow_id IS NOT NULL THEN 1 ELSE 0 END) AS has_favourite
+                FROM meadows m
+                LEFT JOIN user_favourite_meadows f
+                    ON f.meadow_id = m.id AND f.user_id = :favUser
+                WHERE ' . buildWhereClause($where) . '
+                GROUP BY
+                    FLOOR((m.centroid_lng - :clusterWest) / :lngStep),
+                    FLOOR((m.centroid_lat - :clusterSouth) / :latStep)
+                ORDER BY meadow_count DESC
+            ';
+        } else {
+            $sql = '
+                SELECT
+                    AVG(m.centroid_lat) AS centroid_lat,
+                    AVG(m.centroid_lng) AS centroid_lng,
+                    COUNT(*) AS meadow_count
+                FROM meadows m
+                WHERE ' . buildWhereClause($where) . '
+                GROUP BY
+                    FLOOR((m.centroid_lng - :clusterWest) / :lngStep),
+                    FLOOR((m.centroid_lat - :clusterSouth) / :latStep)
+                ORDER BY meadow_count DESC
+            ';
+        }
 
         $statement = $pdo->prepare($sql);
         foreach ($clusterParams as $key => $value) {
@@ -257,43 +333,93 @@ try {
                 continue;
             }
 
+            $props = [
+                'centroid_lat' => $lat,
+                'centroid_lng' => $lng,
+                'cluster_count' => (int) $row['meadow_count'],
+            ];
+            if ($sessionUserId !== null) {
+                $props['has_favourite'] = ((int) ($row['has_favourite'] ?? 0)) === 1;
+            }
+
             $features[] = [
                 'type' => 'Feature',
                 'geometry' => [
                     'type' => 'Point',
                     'coordinates' => [$lng, $lat],
                 ],
-                'properties' => [
-                    'centroid_lat' => $lat,
-                    'centroid_lng' => $lng,
-                    'cluster_count' => (int) $row['meadow_count'],
-                ],
+                'properties' => $props,
             ];
         }
     } else {
-        $sql = '
-            SELECT
-                source_id,
-                source_type,
-                land_cover_code,
-                area_ha,
-                area_m2,
-                nearest_road_m,
-                nearest_path_m,
-                nearest_water_m,
-                nearest_river_m,
-                nearest_settlement_m,
-                centroid_lat,
-                centroid_lng,
-                geom_geojson
-            FROM meadows
-            WHERE ' . buildWhereClause($where) . '
-            ORDER BY area_m2 DESC
-            LIMIT :limit
-        ';
+        if ($sessionUserId !== null) {
+            $polyParams = $params + [':favUser' => $sessionUserId];
+            $sql = '
+                SELECT
+                    m.id,
+                    m.source_id,
+                    m.source_type,
+                    m.land_cover_code,
+                    m.area_ha,
+                    m.area_m2,
+                    m.average_elevation_deviation_m,
+                    m.largest_flat_patch_m2,
+                    m.largest_flat_patch_share,
+                    m.flat_area_share,
+                    m.terrain_roughness_p80_m,
+                    m.nearest_road_m,
+                    m.nearest_path_m,
+                    m.nearest_water_m,
+                    m.nearest_river_m,
+                    m.nearest_settlement_m,
+                    m.nearest_building_m,
+                    m.centroid_lat,
+                    m.centroid_lng,
+                    m.geom_geojson,
+                    (CASE WHEN f.meadow_id IS NOT NULL THEN 1 ELSE 0 END) AS is_favourite
+                FROM meadows m
+                LEFT JOIN user_favourite_meadows f
+                    ON f.meadow_id = m.id AND f.user_id = :favUser
+                WHERE ' . buildWhereClause($where) . '
+                ORDER BY m.area_m2 DESC
+                LIMIT :limit
+            ';
+        } else {
+            $polyParams = $params;
+            $sql = '
+                SELECT
+                    m.id,
+                    m.source_id,
+                    m.source_type,
+                    m.land_cover_code,
+                    m.area_ha,
+                    m.area_m2,
+                    m.average_elevation_deviation_m,
+                    m.largest_flat_patch_m2,
+                    m.largest_flat_patch_share,
+                    m.flat_area_share,
+                    m.terrain_roughness_p80_m,
+                    m.nearest_road_m,
+                    m.nearest_path_m,
+                    m.nearest_water_m,
+                    m.nearest_river_m,
+                    m.nearest_settlement_m,
+                    m.nearest_building_m,
+                    m.centroid_lat,
+                    m.centroid_lng,
+                    m.geom_geojson
+                FROM meadows m
+                WHERE ' . buildWhereClause($where) . '
+                ORDER BY m.area_m2 DESC
+                LIMIT :limit
+            ';
+        }
 
         $statement = $pdo->prepare($sql);
-        foreach ($params as $key => $value) {
+        foreach ($polyParams as $key => $value) {
+            if ($key === ':limit') {
+                continue;
+            }
             $statement->bindValue($key, $value);
         }
         $statement->bindValue(':limit', POLYGON_RESULT_LIMIT, PDO::PARAM_INT);
@@ -307,23 +433,35 @@ try {
                 continue;
             }
 
+            $props = [
+                'id' => (int) $row['id'],
+                'source_id' => $row['source_id'],
+                'source_type' => $row['source_type'],
+                'land_cover_code' => $row['land_cover_code'],
+                'area_ha' => $row['area_ha'],
+                'area_m2' => $row['area_m2'],
+                'average_elevation_deviation_m' => $row['average_elevation_deviation_m'],
+                'largest_flat_patch_m2' => $row['largest_flat_patch_m2'],
+                'largest_flat_patch_share' => $row['largest_flat_patch_share'],
+                'flat_area_share' => $row['flat_area_share'],
+                'terrain_roughness_p80_m' => $row['terrain_roughness_p80_m'],
+                'nearest_road_m' => $row['nearest_road_m'],
+                'nearest_path_m' => $row['nearest_path_m'],
+                'nearest_water_m' => $row['nearest_water_m'],
+                'nearest_river_m' => $row['nearest_river_m'],
+                'nearest_settlement_m' => $row['nearest_settlement_m'],
+                'nearest_building_m' => $row['nearest_building_m'],
+                'centroid_lat' => $row['centroid_lat'],
+                'centroid_lng' => $row['centroid_lng'],
+            ];
+            if ($sessionUserId !== null) {
+                $props['is_favourite'] = ((int) ($row['is_favourite'] ?? 0)) === 1;
+            }
+
             $features[] = [
                 'type' => 'Feature',
                 'geometry' => $geometry,
-                'properties' => [
-                    'source_id' => $row['source_id'],
-                    'source_type' => $row['source_type'],
-                    'land_cover_code' => $row['land_cover_code'],
-                    'area_ha' => $row['area_ha'],
-                    'area_m2' => $row['area_m2'],
-                    'nearest_road_m' => $row['nearest_road_m'],
-                    'nearest_path_m' => $row['nearest_path_m'],
-                    'nearest_water_m' => $row['nearest_water_m'],
-                    'nearest_river_m' => $row['nearest_river_m'],
-                    'nearest_settlement_m' => $row['nearest_settlement_m'],
-                    'centroid_lat' => $row['centroid_lat'],
-                    'centroid_lng' => $row['centroid_lng'],
-                ],
+                'properties' => $props,
             ];
         }
     }

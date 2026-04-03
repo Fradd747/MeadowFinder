@@ -10,4 +10,11 @@ return [
     'db_password' => 'replace_me',
     'db_table' => 'meadows', // optional, only for direct import
     'max_results' => 600,
+    // Google Sign-In (OAuth 2.0). See README “Google Cloud Console” for setup.
+    'google_client_id' => '',
+    'google_client_secret' => '',
+    // Must match an “Authorized redirect URI” in Google Cloud exactly, e.g. https://example.com/api/auth_callback.php
+    'oauth_redirect_uri' => '',
+    // Optional. Public URL of the app home for post-login redirect (e.g. https://example.com/). If empty, derived from PHP path.
+    'app_home_url' => '',
 ];

@@ -14,6 +14,7 @@ declare(strict_types=1);
         crossorigin=""
     >
     <link rel="stylesheet" href="assets/app.css">
+    <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" sizes="any">
 </head>
 <body>
     <div class="layout">
@@ -207,27 +208,167 @@ declare(strict_types=1);
                     </div>
                 </div>
 
+                <div class="range-group">
+                    <div class="range-label-row">
+                        <span class="filter-label">Vzdálenost od nejbližší budovy (m)</span>
+                        <span class="range-value" id="buildingRangeValue">0 m - Bez limitu</span>
+                    </div>
+                    <div class="range-field range-field-dual">
+                        <div class="range-slider" id="buildingRange">
+                            <input
+                                type="range"
+                                id="minBuilding"
+                                name="minBuilding"
+                                min="0"
+                                max="5000"
+                                step="10"
+                                value="0"
+                                aria-label="Minimální vzdálenost od budovy"
+                            >
+                            <input
+                                type="range"
+                                id="maxBuilding"
+                                name="maxBuilding"
+                                min="0"
+                                max="5000"
+                                step="10"
+                                value="5000"
+                                aria-label="Maximální vzdálenost od budovy"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <section class="terrain-panel" aria-labelledby="terrainHeading">
+                    <div class="terrain-panel-header">
+                        <h2 id="terrainHeading">Rovinatost</h2>
+                    </div>
+
+                    <div class="terrain-panel-info" role="note">
+                        <p>
+                        Doporučujeme filtr ne méně jak 3. Data spojují kopce i roviny do velkých ploch, takže přísnější nastavení může vyřadit i lokality, kde je pro stanování vhodná jen jejich část.
+                        </p>
+                    </div>
+
+                    <div class="range-group slope-filter-group">
+                        <div class="range-label-row">
+                            <span class="filter-label">Rovinatost</span>
+                            <span class="range-value" id="slopeFilterValue">Strmá</span>
+                        </div>
+                        <div class="slope-range-end-labels" aria-hidden="true">
+                            <span>Úplně rovná</span>
+                            <span>Strmá</span>
+                        </div>
+                        <div class="range-field">
+                            <div class="range-slider slope-range-slider" id="slopeRangeSlider">
+                                <input
+                                    type="range"
+                                    id="slopeFilter"
+                                    name="slopeFilter"
+                                    min="0"
+                                    max="5"
+                                    step="1"
+                                    value="5"
+                                    aria-label="Filtr rovinatosti od úplně rovné po strmou"
+                                    aria-valuemin="0"
+                                    aria-valuemax="5"
+                                >
+                            </div>
+                        </div>
+                        <div class="slope-tick-labels" aria-hidden="true">
+                            <span>1</span>
+                            <span>2</span>
+                            <span>3</span>
+                            <span>4</span>
+                            <span>5</span>
+                            <span>6</span>
+                        </div>
+                    </div>
+
+                    <details class="advanced-flatness">
+                        <summary>Pokročilé nastavení rovinatosti</summary>
+                        <div class="advanced-flatness-fields">
+                            <label class="advanced-field" data-metric-help="largestFlatPatchShare">
+                                <span class="filter-label">Minimální souvislá rovná plocha (%)</span>
+                                <input
+                                    type="number"
+                                    id="minLargestFlatPatchShare"
+                                    name="minLargestFlatPatchShare"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    inputmode="numeric"
+                                >
+                            </label>
+                            <label class="advanced-field" data-metric-help="flatAreaShare">
+                                <span class="filter-label">Minimální rovná část louky (%)</span>
+                                <input
+                                    type="number"
+                                    id="minFlatAreaShare"
+                                    name="minFlatAreaShare"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    inputmode="numeric"
+                                >
+                            </label>
+                            <label class="advanced-field" data-metric-help="terrainRoughnessP80">
+                                <span class="filter-label">Maximální členitost terénu P80 (m)</span>
+                                <input
+                                    type="number"
+                                    id="maxTerrainRoughnessP80M"
+                                    name="maxTerrainRoughnessP80M"
+                                    min="0"
+                                    step="0.1"
+                                    inputmode="decimal"
+                                >
+                            </label>
+                        </div>
+                    </details>
+                </section>
+
                 <div class="button-row">
                     <button type="button" id="resetFilters">Obnovit</button>
                 </div>
             </form>
 
-            <dl class="stats">
-                <div>
-                    <dt>Zobrazené louky</dt>
-                    <dd id="countText">0</dd>
-                </div>
-            </dl>
-
             <div id="selection" class="selection">
                 <strong>Klikněte na louku</strong>
                 <p>Zde se zobrazí podrobnosti o parcele.</p>
             </div>
+
+            <p class="sidebar-legal">
+                <a href="privacy.php">Ochrana osobních údajů</a>
+                <span aria-hidden="true"> · </span>
+                <a href="terms.php">Podmínky použití</a>
+            </p>
         </aside>
 
         <main class="map-shell">
             <div id="map"></div>
         </main>
+    </div>
+
+    <div id="userPanel" class="user-panel" aria-label="Účet"></div>
+
+    <div id="loginModal" class="login-modal" hidden>
+        <div class="login-modal-backdrop" tabindex="-1"></div>
+        <div
+            class="login-modal-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="loginModalTitle"
+        >
+            <h2 id="loginModalTitle">Přihlášení</h2>
+            <p class="login-modal-lead">Pro ukládání oblíbených luk se přihlaste Google účtem.</p>
+            <a class="button login-modal-google" href="api/auth_start.php">Pokračovat přes Google</a>
+            <p class="login-modal-legal">
+                <a href="privacy.php">Ochrana osobních údajů</a>
+                <span aria-hidden="true"> · </span>
+                <a href="terms.php">Podmínky použití</a>
+            </p>
+            <button type="button" class="login-modal-close">Zavřít</button>
+        </div>
     </div>
 
     <script
