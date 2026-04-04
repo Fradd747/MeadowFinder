@@ -1634,12 +1634,7 @@ body.legal-page {
         grid-template-columns: 1fr;
     }
 
-    .map-search-control,
-    .basemap-control-stack {
-        display: none;
-    }
-
-    .map-search-control.is-mobile-open {
+    .map-search-control {
         display: block;
         position: fixed;
         top: 4.25rem;
@@ -1648,9 +1643,17 @@ body.legal-page {
         width: auto;
         max-width: none;
         z-index: 1200;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(-0.35rem) scale(0.985);
+        transition:
+            opacity 170ms ease,
+            transform 170ms ease,
+            visibility 0s linear 170ms;
     }
 
-    .basemap-control-stack.is-mobile-open {
+    .basemap-control-stack {
         display: flex;
         position: fixed;
         top: 4.25rem;
@@ -1666,6 +1669,26 @@ body.legal-page {
         align-items: stretch;
         overflow-x: hidden;
         z-index: 1200;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(-0.35rem) scale(0.985);
+        transition:
+            opacity 170ms ease,
+            transform 170ms ease,
+            visibility 0s linear 170ms;
+    }
+
+    .map-search-control.is-mobile-open,
+    .basemap-control-stack.is-mobile-open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0) scale(1);
+        transition:
+            opacity 190ms ease,
+            transform 190ms ease,
+            visibility 0s linear 0s;
     }
 
     .map-search-control,
@@ -1797,5 +1820,12 @@ body.legal-page {
 
     .basemap-stats-box .stats dd {
         font-size: 0.86rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .map-search-control,
+    .basemap-control-stack {
+        transition: none;
     }
 }
