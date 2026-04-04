@@ -19,8 +19,7 @@ declare(strict_types=1);
 <body>
     <div class="layout">
         <aside class="sidebar">
-            <h1>Vyhledávač luk</h1>
-
+            <h1 class="sidebar-title">Vyhledávač luk</h1>
             <form id="filters" class="filters">
                 <details class="filters-panel" open>
                     <summary class="filters-panel-summary">Filtry</summary>

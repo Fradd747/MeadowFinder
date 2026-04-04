@@ -1,13 +1,45 @@
+@font-face {
+    font-family: "TheMixC5";
+    src: url("./fonts/TheMixC5-4_SemiLight.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "TheMixC5";
+    src: url("./fonts/TheMixC5-7_Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "SKAUT";
+    src: url("./fonts/SKAUT-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+}
+
 html,
 body {
     height: 100%;
     margin: 0;
-    font-family: Arial, sans-serif;
+    font-family: "TheMixC5", Arial, sans-serif;
     color: #17231c;
 }
 
 body {
     background: #f3f7f2;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.filters-panel-summary,
+.advanced-flatness summary {
+    font-family: "SKAUT", Arial, sans-serif;
 }
 
 .layout {
@@ -18,17 +50,21 @@ body {
 
 .sidebar {
     box-sizing: border-box;
-    padding: 1rem 1.35rem 1rem 1rem;
+    padding: 1rem;
     overflow-y: auto;
-    /* Reserve gutter for classic scrollbars; tooltip still avoids overlay scrollbars via leftward growth. */
-    scrollbar-gutter: stable;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
     background: #ffffff;
     border-right: 1px solid #d9e4da;
 }
 
+.sidebar::-webkit-scrollbar {
+    display: none;
+}
+
 .sidebar h1 {
     margin-top: 0;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
     font-size: 1.5rem;
 }
 
@@ -281,7 +317,7 @@ body {
     font-size: 0.62rem;
     font-weight: bold;
     font-style: italic;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: inherit;
     line-height: 1;
     cursor: help;
     flex-shrink: 0;
@@ -312,7 +348,7 @@ body {
     font-size: 0.78rem;
     font-weight: normal;
     font-style: normal;
-    font-family: Arial, sans-serif;
+    font-family: inherit;
     line-height: 1.4;
     box-shadow: 0 6px 18px rgba(23, 35, 28, 0.12);
     opacity: 0;
@@ -342,6 +378,7 @@ body {
     font-size: 0.95rem;
     font-variant-numeric: tabular-nums;
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+    appearance: textfield;
     -moz-appearance: textfield;
     transition:
         border-color 140ms ease,
@@ -1224,6 +1261,7 @@ body {
     background: #eef6f0;
 }
 
+
 .sidebar-legal {
     margin: 1rem 0 0;
     padding-top: 0.75rem;
@@ -1251,7 +1289,7 @@ body.legal-page {
     background: #f3f7f2;
     margin: 0;
     min-height: 100%;
-    font-family: Arial, sans-serif;
+    font-family: "TheMixC5", Arial, sans-serif;
     color: #17231c;
 }
 
