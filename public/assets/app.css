@@ -46,6 +46,8 @@ h6,
     display: grid;
     grid-template-columns: clamp(340px, 25vw, 400px) 1fr;
     height: 100vh;
+    min-height: 100dvh;
+    position: relative;
 }
 
 .sidebar {
@@ -63,9 +65,102 @@ h6,
 }
 
 .sidebar h1 {
-    margin-top: 0;
-    margin-bottom: 1rem;
+    margin-top: 0;    
     font-size: 1.5rem;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.sidebar-title {
+    flex: 1;
+}
+
+.sidebar-close,
+.map-action-button {
+    font: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    border: 1px solid #d5dfd7;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #1e3025;
+    box-shadow: 0 6px 18px rgba(23, 35, 28, 0.08);
+    transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.sidebar-close:hover,
+.map-action-button:hover,
+.sidebar-close:focus-visible,
+.map-action-button:focus-visible,
+.map-action-button.is-active {
+    border-color: #bdd0c2;
+    background: #fcfefd;
+    box-shadow: 0 10px 22px rgba(23, 35, 28, 0.1);
+    transform: translateY(-1px);
+}
+
+.sidebar-close {
+    display: none;
+    flex-shrink: 0;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.88rem;
+}
+
+.sidebar-backdrop {
+    display: none;
+    border: 0;
+    padding: 0;
+    background: rgba(23, 35, 28, 0.45);
+}
+
+.map-shell {
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+}
+
+.map-toolbar {
+    display: none;
+}
+
+.map-action-button {
+    padding: 0.75rem 1rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    pointer-events: auto;
+    background: rgba(255, 255, 255, 0.96);
+}
+
+.map-action-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+}
+
+.map-action-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.map-action-button-search,
+.map-action-button-layers {
+    display: none;
 }
 
 .sidebar-copy {
@@ -680,6 +775,10 @@ h6,
     height: 100%;
 }
 
+#map {
+    min-height: 0;
+}
+
 .map-search-control {
     box-sizing: border-box;
     min-width: 220px;
@@ -825,6 +924,12 @@ h6,
     color: #2d7d4f;
 }
 
+.leaflet-control-attribution,
+.leaflet-control-attribution a {
+    pointer-events: none;
+    cursor: default;
+}
+
 /* Katastrální + zoom 17+: map pane shows pointer (click opens Nahlížení do KN). */
 .leaflet-container.cadastral-kn-pointer .leaflet-map-pane {
     cursor: pointer;
@@ -887,9 +992,16 @@ h6,
 }
 
 .basemap-control-summary {
+    font: inherit;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
     display: grid;
     gap: 0.15rem;
     margin-top: 0.4rem;
+    cursor: pointer;
 }
 
 .basemap-control-summary-label {
@@ -914,7 +1026,9 @@ h6,
     transition: max-height 180ms ease, margin-top 180ms ease, opacity 140ms ease, transform 180ms ease;
 }
 
-.basemap-control:hover .basemap-control-buttons {
+.basemap-control:hover .basemap-control-buttons,
+.basemap-control:focus-within .basemap-control-buttons,
+.basemap-control.is-open .basemap-control-buttons {
     max-height: 220px;
     margin-top: 0.75rem;
     opacity: 1;
@@ -1308,29 +1422,343 @@ body.legal-page {
     color: #2d7d4f;
 }
 
+.legal-main p,
+.legal-main li {
+    line-height: 1.6;
+}
+
 .legal-placeholder {
     line-height: 1.55;
     color: #3d5648;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
     .layout {
         grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
+        height: 100dvh;
+        overflow: hidden;
     }
 
     .sidebar {
-        border-right: 0;
-        border-bottom: 1px solid #d9e4da;
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 5000;
+        width: min(420px, calc(100vw - 2.5rem));
+        max-width: 100%;
+        padding: 1rem 1rem 1.25rem;
+        border-right: 1px solid #d9e4da;
+        box-shadow: 0 20px 44px rgba(23, 35, 28, 0.24);
+        transform: translateX(-100%);
+        transition: transform 180ms ease;
+        overscroll-behavior: contain;
+    }
+
+    body.mobile-sidebar-open {
+        overflow: hidden;
+    }
+
+    body.mobile-sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+
+    .sidebar-close {
+        display: inline-flex;
+    }
+
+    .sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 4900;
+    }
+
+    body.mobile-sidebar-open .sidebar-backdrop:not([hidden]) {
+        display: block;
+    }
+
+    .map-shell {
+        display: block;
+        min-height: 100dvh;
+    }
+
+    .map-toolbar {
+        display: flex;
+        justify-content: center;
+        position: absolute;
+        top: max(0.75rem, env(safe-area-inset-top));
+        left: 0.75rem;
+        right: 0.75rem;
+        z-index: 1100;
+        pointer-events: none;
+        background: transparent;
+    }
+
+    .map-action-button {
+        width: auto;
+        max-width: min(100%, 20rem);
+    }
+
+    .map-shell .leaflet-top {
+        top: 0.5rem;
+    }
+
+    .map-shell .leaflet-left {
+        left: 0.75rem;
+    }
+
+    .map-shell .leaflet-right {
+        right: 0.75rem;
     }
 
     .basemap-control {
-        min-width: 190px;
+        min-width: 180px;
+        max-width: min(240px, calc(100vw - 1.5rem));
         padding: 0.7rem;
     }
 
+    .basemap-stats-box {
+        min-width: 180px;
+        max-width: min(240px, calc(100vw - 1.5rem));
+    }
+
     .map-search-control {
-        min-width: 190px;
+        min-width: 180px;
+        max-width: min(240px, calc(100vw - 1.5rem));
         padding: 0.7rem;
+    }
+
+    .selection-metric {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .selection-metric-value {
+        text-align: left;
+    }
+
+    .login-modal-dialog {
+        width: min(400px, calc(100vw - 1.5rem));
+        padding: 1.25rem;
+    }
+
+    .legal-main {
+        padding: 1.25rem 1rem 2rem;
+    }
+}
+
+@media (max-width: 720px) {
+    .sidebar {
+        width: min(100vw, 26rem);
+        padding: 0.9rem 0.9rem 1.1rem;
+    }
+
+    .sidebar h1 {
+        margin-bottom: 0.75rem;
+        font-size: 1.35rem;
+    }
+
+    .map-toolbar {
+        top: auto;
+        bottom: max(0.85rem, calc(env(safe-area-inset-bottom) + 0.85rem));
+        left: 0.65rem;
+        right: 0.65rem;
+        justify-content: space-evenly;
+        gap: 0.45rem;
+        align-items: center;
+        pointer-events: auto;
+    }
+
+    .map-action-button {
+        flex: 1 1 0;
+        min-height: 2.75rem;
+        padding: 0.7rem 0.85rem;
+        font-size: 0.88rem;
+        max-width: none;
+    }
+
+    .map-action-button-search,
+    .map-action-button-layers {
+        display: inline-flex;
+    }
+
+    .map-action-label {
+        white-space: nowrap;
+    }
+
+    .filters-panel-summary {
+        padding: 0.85rem;
+    }
+
+    .filters-panel-body {
+        gap: 0.8rem;
+        padding: 0 0.85rem 0.85rem;
+    }
+
+    .terrain-panel,
+    .selection,
+    .user-panel {
+        padding: 0.85rem;
+        border-radius: 0.85rem;
+    }
+
+    .terrain-panel-info {
+        padding: 0.6rem 0.7rem;
+        font-size: 0.84rem;
+    }
+
+    .range-label-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .range-value {
+        white-space: normal;
+    }
+
+    .slope-range-end-labels {
+        font-size: 0.75rem;
+    }
+
+    .slope-tick-labels {
+        font-size: 0.68rem;
+    }
+
+    .advanced-flatness-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .map-search-control,
+    .basemap-control-stack {
+        display: none;
+    }
+
+    .map-search-control.is-mobile-open {
+        display: block;
+        position: fixed;
+        top: 4.25rem;
+        left: 0.65rem;
+        right: 0.65rem;
+        width: auto;
+        max-width: none;
+        z-index: 1200;
+    }
+
+    .basemap-control-stack.is-mobile-open {
+        display: flex;
+        position: fixed;
+        top: 4.25rem;
+        left: 0.65rem;
+        right: 0.65rem;
+        width: auto;
+        max-width: none;
+        align-items: stretch;
+        z-index: 1200;
+    }
+
+    .map-search-control,
+    .basemap-control,
+    .basemap-stats-box {
+        min-width: 0;
+        width: 100%;
+        max-width: none;
+        padding: 0.6rem;
+        border-radius: 0.9rem;
+    }
+
+    .basemap-stats-box {
+        padding: 0;
+    }
+
+    .map-search-control-title,
+    .basemap-control-title {
+        font-size: 0.68rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .map-search-input,
+    .map-search-submit {
+        font-size: 0.88rem;
+    }
+
+    .basemap-control-summary-label {
+        font-size: 0.92rem;
+    }
+
+    .basemap-stats-box .stats dt {
+        font-size: 0.8rem;
+    }
+
+    .basemap-stats-box .stats dd {
+        font-size: 0.92rem;
+    }
+
+    .login-modal-dialog {
+        padding: 1rem;
+        border-radius: 0.8rem;
+    }
+
+    .legal-main {
+        padding: 1rem 0.9rem 1.75rem;
+    }
+
+    .legal-main h1 {
+        font-size: 1.3rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        width: calc(100vw - 1rem);
+    }
+
+    .map-action-button {
+        flex: 1 1 0;
+        padding: 0.68rem 0.78rem;
+    }
+
+    .map-toolbar {
+        left: 0.5rem;
+        right: 0.5rem;
+        bottom: max(0.75rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+    }
+
+    .map-search-control,
+    .basemap-control,
+    .basemap-stats-box {
+        width: 100%;
+        max-width: none;
+    }
+
+    .map-search-control.is-mobile-open,
+    .basemap-control-stack.is-mobile-open {
+        left: 0.5rem;
+        right: 0.5rem;
+        top: 4rem;
+    }
+
+    .map-shell .leaflet-left {
+        left: 0.5rem;
+    }
+
+    .map-shell .leaflet-right {
+        right: 0.5rem;
+    }
+
+    .map-search-row {
+        gap: 0.35rem;
+    }
+
+    .map-search-submit {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .basemap-stats-box .stats div {
+        gap: 0.35rem;
+        align-items: center;
+    }
+
+    .basemap-stats-box .stats dd {
+        font-size: 0.86rem;
     }
 }

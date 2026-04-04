@@ -18,8 +18,19 @@ declare(strict_types=1);
 </head>
 <body>
     <div class="layout">
-        <aside class="sidebar">
-            <h1 class="sidebar-title">Vyhledávač luk</h1>
+        <aside class="sidebar" id="sidebarDrawer" aria-label="Filtry a podrobnosti">
+            <div class="sidebar-header">
+                <h1 class="sidebar-title">Vyhledávač luk</h1>
+                <button
+                    type="button"
+                    class="sidebar-close"
+                    id="sidebarClose"
+                    aria-controls="sidebarDrawer"
+                    aria-label="Zavřít filtry a podrobnosti"
+                >
+                    Zavřít
+                </button>
+            </div>
             <form id="filters" class="filters">
                 <details class="filters-panel" open>
                     <summary class="filters-panel-summary">Filtry</summary>
@@ -349,7 +360,67 @@ declare(strict_types=1);
             </p>
         </aside>
 
+        <button
+            type="button"
+            class="sidebar-backdrop"
+            id="sidebarBackdrop"
+            aria-label="Zavřít filtry a podrobnosti"
+            hidden
+        ></button>
+
         <main class="map-shell">
+            <div class="map-toolbar">
+                <button
+                    type="button"
+                    class="map-action-button map-action-button-search"
+                    id="searchToggle"
+                    aria-controls="map"
+                    aria-expanded="false"
+                    aria-label="Otevřít hledání"
+                >
+                    <span class="map-action-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <circle cx="11" cy="11" r="6"></circle>
+                            <path d="M16 16l4.5 4.5"></path>
+                        </svg>
+                    </span>
+                    <span class="map-action-label">Hledat</span>
+                </button>
+                <button
+                    type="button"
+                    class="map-action-button sidebar-toggle"
+                    id="sidebarToggle"
+                    aria-controls="sidebarDrawer"
+                    aria-expanded="false"
+                    aria-label="Otevřít filtry a podrobnosti"
+                >
+                    <span class="map-action-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M4 6h16"></path>
+                            <path d="M7 12h10"></path>
+                            <path d="M10 18h4"></path>
+                        </svg>
+                    </span>
+                    <span class="map-action-label">Filtry</span>
+                </button>
+                <button
+                    type="button"
+                    class="map-action-button map-action-button-layers"
+                    id="layersToggle"
+                    aria-controls="map"
+                    aria-expanded="false"
+                    aria-label="Otevřít vrstvy mapy"
+                >
+                    <span class="map-action-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M12 5l7 4-7 4-7-4 7-4Z"></path>
+                            <path d="M5 13l7 4 7-4"></path>
+                            <path d="M5 17l7 4 7-4"></path>
+                        </svg>
+                    </span>
+                    <span class="map-action-label">Vrstvy</span>
+                </button>
+            </div>
             <div id="map"></div>
         </main>
     </div>

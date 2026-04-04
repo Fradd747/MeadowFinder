@@ -139,9 +139,13 @@ const basemapOptions = {
   cadastral: { label: "Katastrální" },
   touristCycle: { label: "Turistická + Cyklo" },
 };
+const mobileSidebarQuery = window.matchMedia("(max-width: 1100px)");
+const phoneLayoutQuery = window.matchMedia("(max-width: 720px)");
 let activeBasemap = "street";
 let basemapButtons = [];
 let basemapSummaryLabel = null;
+let basemapControlContainer = null;
+let basemapSummaryButton = null;
 
 const RUIAN_IDENTIFY_URL =
   "https://ags.cuzk.cz/arcgis/rest/services/RUIAN/Prohlizeci_sluzba_nad_daty_RUIAN/MapServer/identify";
@@ -162,6 +166,16 @@ function updateBasemapButtons() {
   if (basemapSummaryLabel) {
     basemapSummaryLabel.textContent = basemapOptions[activeBasemap].label;
   }
+}
+
+function syncBasemapControlState() {
+  if (!basemapControlContainer || !basemapSummaryButton) {
+    return;
+  }
+
+  const expanded = isPhoneLayoutViewport() && document.body.classList.contains("mobile-layers-open");
+  basemapControlContainer.classList.toggle("is-open", expanded);
+  basemapSummaryButton.setAttribute("aria-expanded", String(expanded));
 }
 
 function setBasemap(layerName) {
@@ -186,10 +200,15 @@ const BasemapControl = L.Control.extend({
   onAdd() {
     const root = L.DomUtil.create("div", "basemap-control-stack");
     const container = L.DomUtil.create("div", "basemap-control", root);
+    basemapControlContainer = container;
     const title = L.DomUtil.create("div", "basemap-control-title", container);
     title.textContent = "Vrstvy";
 
-    const summary = L.DomUtil.create("div", "basemap-control-summary", container);
+    const summary = L.DomUtil.create("button", "basemap-control-summary", container);
+    summary.type = "button";
+    summary.setAttribute("aria-label", "Vybrat vrstvu mapy");
+    summary.setAttribute("aria-expanded", "false");
+    basemapSummaryButton = summary;
     basemapSummaryLabel = L.DomUtil.create("span", "basemap-control-summary-label", summary);
 
     const buttonRow = L.DomUtil.create("div", "basemap-control-buttons", container);
@@ -204,6 +223,8 @@ const BasemapControl = L.Control.extend({
       `;
       button.addEventListener("click", () => {
         setBasemap(option.key);
+        closeMobileMapPanels();
+        syncBasemapControlState();
         button.blur();
       });
       return button;
@@ -221,6 +242,7 @@ const BasemapControl = L.Control.extend({
     L.DomEvent.disableClickPropagation(root);
     L.DomEvent.disableScrollPropagation(root);
     updateBasemapButtons();
+    syncBasemapControlState();
     return root;
   },
 });
@@ -277,10 +299,12 @@ const PlaceSearchControl = L.Control.extend({
         ) {
           const bb = L.latLngBounds(L.latLng(south, west), L.latLng(north, east));
           map.fitBounds(bb, { maxZoom: 16, padding: [24, 24] });
+          closeMobileMapPanels();
           return;
         }
       }
       map.setView([lat, lng], 15, { animate: true });
+      closeMobileMapPanels();
     }
 
     L.DomEvent.on(form, "submit", L.DomEvent.stopPropagation);
@@ -366,6 +390,12 @@ const filtersPanel = document.querySelector(".filters-panel");
 const filtersPanelBody = filtersPanel?.querySelector(".filters-panel-body");
 const resetButton = document.getElementById("resetFilters");
 const countText = document.getElementById("countText");
+const searchToggle = document.getElementById("searchToggle");
+const sidebar = document.getElementById("sidebarDrawer");
+const sidebarToggle = document.getElementById("sidebarToggle");
+const layersToggle = document.getElementById("layersToggle");
+const sidebarClose = document.getElementById("sidebarClose");
+const sidebarBackdrop = document.getElementById("sidebarBackdrop");
 const selection = document.getElementById("selection");
 const userPanel = document.getElementById("userPanel");
 const loginModal = document.getElementById("loginModal");
@@ -374,6 +404,8 @@ const slopeFilterValueEl = document.getElementById("slopeFilterValue");
 const slopeRangeSliderEl = document.getElementById("slopeRangeSlider");
 const emptySelectionHtml = "<strong>Klikněte na louku</strong><p>Zde se zobrazí podrobnosti o parcele.</p>";
 const mapContextMenu = document.createElement("div");
+const mapSearchControl = document.querySelector(".map-search-control");
+const basemapControlStack = document.querySelector(".basemap-control-stack");
 
 let authUser = null;
 let oauthConfigured = true;
@@ -398,6 +430,102 @@ const AUTH_ERROR_MESSAGES = {
   database_error: "Chyba při ukládání účtu.",
   user_persist_failed: "Nepodařilo se uložit účet.",
 };
+
+function isMobileSidebarViewport() {
+  return mobileSidebarQuery.matches;
+}
+
+function isPhoneLayoutViewport() {
+  return phoneLayoutQuery.matches;
+}
+
+function syncMobileMapPanels() {
+  if (!searchToggle || !layersToggle) {
+    return;
+  }
+
+  const isPhone = isPhoneLayoutViewport();
+  if (!isPhone) {
+    document.body.classList.remove("mobile-search-open", "mobile-layers-open");
+  }
+
+  const searchOpen = isPhone && document.body.classList.contains("mobile-search-open");
+  const layersOpen = isPhone && document.body.classList.contains("mobile-layers-open");
+
+  searchToggle.setAttribute("aria-expanded", searchOpen ? "true" : "false");
+  layersToggle.setAttribute("aria-expanded", layersOpen ? "true" : "false");
+  searchToggle.classList.toggle("is-active", searchOpen);
+  layersToggle.classList.toggle("is-active", layersOpen);
+  mapSearchControl?.classList.toggle("is-mobile-open", !isPhone || searchOpen);
+  basemapControlStack?.classList.toggle("is-mobile-open", !isPhone || layersOpen);
+}
+
+function setMobileMapPanel(panelName) {
+  const isPhone = isPhoneLayoutViewport();
+  document.body.classList.toggle("mobile-search-open", isPhone && panelName === "search");
+  document.body.classList.toggle("mobile-layers-open", isPhone && panelName === "layers");
+  syncMobileMapPanels();
+  syncBasemapControlState();
+}
+
+function closeMobileMapPanels() {
+  setMobileMapPanel(null);
+}
+
+function syncMobileSidebarState() {
+  if (!sidebar || !sidebarToggle || !sidebarBackdrop) {
+    return;
+  }
+
+  const isMobile = isMobileSidebarViewport();
+  const isOpen = isMobile && document.body.classList.contains("mobile-sidebar-open");
+  sidebarToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  sidebarBackdrop.hidden = !isOpen;
+
+  if (!isMobile) {
+    document.body.classList.remove("mobile-sidebar-open");
+    sidebar.removeAttribute("aria-hidden");
+    if ("inert" in sidebar) {
+      sidebar.inert = false;
+    }
+    return;
+  }
+
+  sidebar.setAttribute("aria-hidden", isOpen ? "false" : "true");
+  if ("inert" in sidebar) {
+    sidebar.inert = !isOpen;
+  }
+}
+
+function setMobileSidebarOpen(isOpen) {
+  if (!sidebar || !sidebarToggle) {
+    return;
+  }
+
+  const shouldOpen = isOpen && isMobileSidebarViewport();
+  if (shouldOpen) {
+    closeMobileMapPanels();
+  }
+  document.body.classList.toggle("mobile-sidebar-open", shouldOpen);
+  syncMobileSidebarState();
+
+  if (shouldOpen) {
+    window.requestAnimationFrame(() => {
+      sidebarClose?.focus();
+    });
+    return;
+  }
+
+  if (document.activeElement instanceof HTMLElement && sidebar.contains(document.activeElement)) {
+    sidebarToggle.focus();
+  }
+}
+
+function closeMobileSidebarIfNeeded() {
+  if (isMobileSidebarViewport()) {
+    setMobileSidebarOpen(false);
+  }
+}
 
 async function loadAuthStatus() {
   try {
@@ -682,6 +810,57 @@ if (loginModal) {
     }
   });
 }
+
+sidebarToggle?.addEventListener("click", () => {
+  const isOpen = document.body.classList.contains("mobile-sidebar-open");
+  setMobileSidebarOpen(!isOpen);
+});
+
+searchToggle?.addEventListener("click", () => {
+  if (document.body.classList.contains("mobile-search-open")) {
+    closeMobileMapPanels();
+    return;
+  }
+  setMobileSidebarOpen(false);
+  setMobileMapPanel("search");
+});
+
+layersToggle?.addEventListener("click", () => {
+  if (document.body.classList.contains("mobile-layers-open")) {
+    closeMobileMapPanels();
+    return;
+  }
+  setMobileSidebarOpen(false);
+  setMobileMapPanel("layers");
+});
+
+sidebarClose?.addEventListener("click", () => {
+  setMobileSidebarOpen(false);
+});
+
+sidebarBackdrop?.addEventListener("click", () => {
+  setMobileSidebarOpen(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.body.classList.contains("mobile-sidebar-open")) {
+    setMobileSidebarOpen(false);
+  }
+  if (event.key === "Escape" && (document.body.classList.contains("mobile-search-open") || document.body.classList.contains("mobile-layers-open"))) {
+    closeMobileMapPanels();
+  }
+});
+
+mobileSidebarQuery.addEventListener("change", () => {
+  syncMobileSidebarState();
+  syncBasemapControlState();
+  syncMobileMapPanels();
+});
+
+phoneLayoutQuery.addEventListener("change", () => {
+  syncMobileMapPanels();
+  syncBasemapControlState();
+});
 
 if (selection) {
   selection.addEventListener("click", (event) => {
@@ -1648,6 +1827,7 @@ function showSelection(properties) {
       ${linksHtml}
     `;
     scrollSidebarToSelection();
+    closeMobileSidebarIfNeeded();
     return;
   }
 
@@ -1680,6 +1860,7 @@ function showSelection(properties) {
     ${linksHtml}
   `;
   scrollSidebarToSelection();
+  closeMobileSidebarIfNeeded();
 }
 
 function clusterClassName(count, hasFavourite) {
@@ -1870,6 +2051,7 @@ document.addEventListener("mousedown", dismissMapContextMenuIfOutside, true);
 document.addEventListener("click", dismissMapContextMenuIfOutside, true);
 map.on("click", (e) => {
   hideMapContextMenu();
+  closeMobileMapPanels();
   void handleCadastralBasemapMapClick(e);
 });
 document.addEventListener("keydown", (event) => {
@@ -1885,9 +2067,13 @@ map.on("movestart", hideMapContextMenu);
 map.on("moveend", debouncedRefresh);
 map.on("zoomstart", hideMapContextMenu);
 window.addEventListener("resize", hideMapContextMenu);
+window.addEventListener("resize", syncBasemapControlState);
+window.addEventListener("resize", syncMobileMapPanels);
 rangeSliderIds.forEach((rangeId) => setActiveRangeThumb(rangeId, rangeSliderConfig[rangeId].maxInputId));
 initAdvancedMetricHelp();
 initAnimatedDetailsPanel(filtersPanel, filtersPanelBody);
+syncMobileSidebarState();
+syncMobileMapPanels();
 selection.innerHTML = emptySelectionHtml;
 syncAllSliderValues();
 setFlatnessThresholds(slopeFilterLevels[DEFAULT_SLOPE_INDEX].thresholds);
