@@ -43,6 +43,66 @@ body {
     gap: 0.9rem;
 }
 
+.filters-panel {
+    border: 1px solid #d9e4da;
+    border-radius: 0.85rem;
+    background: #f7fbf7;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+.filters-panel-summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+    font-weight: bold;
+    color: #1e3025;
+    border-radius: 0.85rem;
+    transition: background-color 140ms ease;
+}
+
+.filters-panel-summary::-webkit-details-marker {
+    display: none;
+}
+
+.filters-panel-summary::after {
+    content: "";
+    flex-shrink: 0;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-right: 2px solid #2d7d4f;
+    border-bottom: 2px solid #2d7d4f;
+    transform: rotate(45deg);
+    margin-top: -0.2rem;
+    transition: transform 160ms ease;
+}
+
+.filters-panel[open] .filters-panel-summary::after {
+    transform: rotate(-135deg);
+    margin-top: 0.15rem;
+}
+
+.filters-panel-summary:hover {
+    background: #eef5ef;
+}
+
+.filters-panel-summary:focus-visible {
+    outline: 2px solid rgba(45, 125, 79, 0.45);
+    outline-offset: 2px;
+    background: #eef5ef;
+}
+
+.filters-panel-body {
+    display: grid;
+    gap: 0.9rem;
+    padding: 0 1rem 1rem;
+    transform-origin: top center;
+}
+
 .terrain-panel {
     display: grid;
     gap: 0.85rem;

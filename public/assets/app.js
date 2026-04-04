@@ -362,6 +362,8 @@ if (zoomControl) {
 new BasemapControl({ position: "topright" }).addTo(map);
 
 const filtersForm = document.getElementById("filters");
+const filtersPanel = document.querySelector(".filters-panel");
+const filtersPanelBody = filtersPanel?.querySelector(".filters-panel-body");
 const resetButton = document.getElementById("resetFilters");
 const countText = document.getElementById("countText");
 const selection = document.getElementById("selection");
@@ -1444,6 +1446,121 @@ function initAdvancedMetricHelp() {
   });
 }
 
+function initAnimatedDetailsPanel(detailsEl, bodyEl) {
+  if (!detailsEl || !bodyEl || typeof detailsEl.animate !== "function") {
+    return;
+  }
+
+  const summaryEl = detailsEl.querySelector("summary");
+  if (!summaryEl) {
+    return;
+  }
+
+  const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let panelAnimation = null;
+  let bodyAnimation = null;
+  let isClosing = false;
+
+  function stopAnimations() {
+    panelAnimation?.cancel();
+    bodyAnimation?.cancel();
+    panelAnimation = null;
+    bodyAnimation = null;
+  }
+
+  function finishAnimation(open) {
+    stopAnimations();
+    isClosing = false;
+    detailsEl.open = open;
+    detailsEl.style.height = "";
+    detailsEl.style.overflow = "";
+    bodyEl.style.opacity = "";
+    bodyEl.style.transform = "";
+    detailsEl.removeAttribute("data-animating");
+  }
+
+  function animateBody(keyframes, options) {
+    if (typeof bodyEl.animate !== "function") {
+      bodyEl.style.opacity = keyframes[keyframes.length - 1].opacity;
+      bodyEl.style.transform = keyframes[keyframes.length - 1].transform;
+      return null;
+    }
+    return bodyEl.animate(keyframes, options);
+  }
+
+  function collapse() {
+    isClosing = true;
+    stopAnimations();
+    detailsEl.setAttribute("data-animating", "true");
+
+    const startHeight = `${detailsEl.offsetHeight}px`;
+    const endHeight = `${summaryEl.offsetHeight}px`;
+    detailsEl.style.height = startHeight;
+    detailsEl.style.overflow = "hidden";
+
+    panelAnimation = detailsEl.animate(
+      { height: [startHeight, endHeight] },
+      { duration: 220, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+    );
+    bodyAnimation = animateBody(
+      [
+        { opacity: 1, transform: "translateY(0)" },
+        { opacity: 0, transform: "translateY(-0.3rem)" },
+      ],
+      { duration: 180, easing: "ease-in", fill: "forwards" },
+    );
+
+    panelAnimation.onfinish = () => finishAnimation(false);
+    panelAnimation.oncancel = () => {
+      panelAnimation = null;
+    };
+  }
+
+  function expand() {
+    stopAnimations();
+    detailsEl.setAttribute("data-animating", "true");
+
+    const startHeight = `${detailsEl.offsetHeight}px`;
+    detailsEl.open = true;
+    const endHeight = `${summaryEl.offsetHeight + bodyEl.offsetHeight}px`;
+
+    bodyEl.style.opacity = "0";
+    bodyEl.style.transform = "translateY(-0.3rem)";
+    detailsEl.style.height = startHeight;
+    detailsEl.style.overflow = "hidden";
+
+    panelAnimation = detailsEl.animate(
+      { height: [startHeight, endHeight] },
+      { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    );
+    bodyAnimation = animateBody(
+      [
+        { opacity: 0, transform: "translateY(-0.3rem)" },
+        { opacity: 1, transform: "translateY(0)" },
+      ],
+      { duration: 210, easing: "ease-out", fill: "forwards" },
+    );
+
+    panelAnimation.onfinish = () => finishAnimation(true);
+    panelAnimation.oncancel = () => {
+      panelAnimation = null;
+    };
+  }
+
+  summaryEl.addEventListener("click", (event) => {
+    if (reduceMotionQuery.matches) {
+      return;
+    }
+
+    event.preventDefault();
+    if (isClosing || !detailsEl.open) {
+      expand();
+      return;
+    }
+    collapse();
+  });
+}
+
 function meadowMatchesThresholds(properties, thresholds) {
   const largestFlatPatchShare = Number(properties.largest_flat_patch_share) * 100;
   const flatAreaShare = Number(properties.flat_area_share) * 100;
@@ -1743,6 +1860,7 @@ map.on("zoomstart", hideMapContextMenu);
 window.addEventListener("resize", hideMapContextMenu);
 rangeSliderIds.forEach((rangeId) => setActiveRangeThumb(rangeId, rangeSliderConfig[rangeId].maxInputId));
 initAdvancedMetricHelp();
+initAnimatedDetailsPanel(filtersPanel, filtersPanelBody);
 selection.innerHTML = emptySelectionHtml;
 syncAllSliderValues();
 setFlatnessThresholds(slopeFilterLevels[DEFAULT_SLOPE_INDEX].thresholds);
