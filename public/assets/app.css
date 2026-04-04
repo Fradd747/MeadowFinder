@@ -942,6 +942,7 @@ h6,
 }
 
 .basemap-control {
+    box-sizing: border-box;
     overflow: hidden;
     min-width: 220px;
     padding: 0.8rem;
@@ -1656,8 +1657,14 @@ body.legal-page {
         left: 0.65rem;
         right: 0.65rem;
         width: auto;
-        max-width: none;
+        min-width: 0;
+        max-width: calc(
+            100vw - 1.3rem - env(safe-area-inset-left, 0px) -
+                env(safe-area-inset-right, 0px)
+        );
+        box-sizing: border-box;
         align-items: stretch;
+        overflow-x: hidden;
         z-index: 1200;
     }
 
@@ -1688,6 +1695,16 @@ body.legal-page {
 
     .basemap-control-summary-label {
         font-size: 0.92rem;
+    }
+
+    .basemap-control.is-open .basemap-control-buttons {
+        max-height: min(55vh, 320px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .basemap-button-label {
+        overflow-wrap: break-word;
     }
 
     .basemap-stats-box .stats dt {
@@ -1749,6 +1766,11 @@ body.legal-page {
         left: 0.5rem;
         right: 0.5rem;
         top: 4rem;
+        max-width: calc(
+            100vw - 1rem - env(safe-area-inset-left, 0px) -
+                env(safe-area-inset-right, 0px)
+        );
+        width: 100%;
     }
 
     .map-shell .leaflet-left {
