@@ -521,10 +521,11 @@ function setMobileSidebarOpen(isOpen) {
   }
 }
 
-function closeMobileSidebarIfNeeded() {
+function revealSelectionInSidebar() {
   if (isMobileSidebarViewport()) {
-    setMobileSidebarOpen(false);
+    setMobileSidebarOpen(true);
   }
+  scrollSidebarToSelection();
 }
 
 async function loadAuthStatus() {
@@ -1904,7 +1905,6 @@ function showSelection(properties) {
       ${linksHtml}
     `;
     scrollSidebarToSelection();
-    closeMobileSidebarIfNeeded();
     return;
   }
 
@@ -1936,8 +1936,7 @@ function showSelection(properties) {
     ${favouriteBlock}
     ${linksHtml}
   `;
-  scrollSidebarToSelection();
-  closeMobileSidebarIfNeeded();
+  revealSelectionInSidebar();
 }
 
 function clusterClassName(count, hasFavourite) {
