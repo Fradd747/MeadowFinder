@@ -299,6 +299,9 @@ const PlaceSearchControl = L.Control.extend({
         ) {
           const bb = L.latLngBounds(L.latLng(south, west), L.latLng(north, east));
           map.fitBounds(bb, { maxZoom: 16, padding: [24, 24] });
+          if (map.getZoom() < 14) {
+            map.setView(bb.getCenter(), 14, { animate: false });
+          }
           closeMobileMapPanels();
           return;
         }
