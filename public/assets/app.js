@@ -378,6 +378,7 @@ const mapContextMenu = document.createElement("div");
 let authUser = null;
 let oauthConfigured = true;
 const favouriteMeadowIds = new Set();
+const pendingFavouriteMeadowIds = new Set();
 /** Last single-meadow properties shown in sidebar (for refresh after favourite toggle). */
 let lastSelectedMeadowProperties = null;
 
@@ -484,6 +485,28 @@ function restyleAllMeadowPolygons() {
   });
 }
 
+function applyFavouriteState(meadowId, isFavourite) {
+  if (isFavourite) {
+    favouriteMeadowIds.add(meadowId);
+  } else {
+    favouriteMeadowIds.delete(meadowId);
+  }
+
+  meadowLayer.eachLayer((layer) => {
+    const layerProperties = layer.feature?.properties;
+    if (!layerProperties || Number(layerProperties.id) !== meadowId) {
+      return;
+    }
+    layerProperties.is_favourite = isFavourite;
+    layer.setStyle(meadowPolygonStyleFromFeature(layer.feature));
+  });
+
+  if (lastSelectedMeadowProperties && Number(lastSelectedMeadowProperties.id) === meadowId) {
+    lastSelectedMeadowProperties.is_favourite = isFavourite;
+    showSelection(lastSelectedMeadowProperties);
+  }
+}
+
 function renderUserPanel() {
   if (!userPanel) {
     return;
@@ -587,22 +610,22 @@ async function toggleFavouriteOnServer(meadowId, remove) {
 }
 
 async function handleFavouriteToggle(meadowId, currentlyFavourite) {
+  const nextFavourite = !currentlyFavourite;
+  pendingFavouriteMeadowIds.add(meadowId);
+  applyFavouriteState(meadowId, nextFavourite);
+
   try {
     await toggleFavouriteOnServer(meadowId, currentlyFavourite);
-    if (currentlyFavourite) {
-      favouriteMeadowIds.delete(meadowId);
-    } else {
-      favouriteMeadowIds.add(meadowId);
-    }
-    if (lastSelectedMeadowProperties && Number(lastSelectedMeadowProperties.id) === meadowId) {
-      lastSelectedMeadowProperties.is_favourite = !currentlyFavourite;
-      showSelection(lastSelectedMeadowProperties);
-    }
-    restyleAllMeadowPolygons();
     await refreshMeadows();
   } catch (err) {
+    applyFavouriteState(meadowId, currentlyFavourite);
     console.error(err);
     alert(err instanceof Error ? err.message : "Akce se nezdařila");
+  } finally {
+    pendingFavouriteMeadowIds.delete(meadowId);
+    if (lastSelectedMeadowProperties && Number(lastSelectedMeadowProperties.id) === meadowId) {
+      showSelection(lastSelectedMeadowProperties);
+    }
   }
 }
 
@@ -668,6 +691,9 @@ if (selection) {
     }
     const id = Number(btn.dataset.meadowId);
     if (!Number.isFinite(id) || id <= 0) {
+      return;
+    }
+    if (pendingFavouriteMeadowIds.has(id)) {
       return;
     }
     if (!authUser) {
@@ -1628,9 +1654,10 @@ function showSelection(properties) {
   lastSelectedMeadowProperties = properties;
   const meadowId = properties.id != null ? Number(properties.id) : null;
   const favourite = meadowId != null && isMeadowFavourite(properties);
+  const favouritePending = meadowId != null && pendingFavouriteMeadowIds.has(meadowId);
   const favouriteBlock =
     meadowId != null
-      ? `<p class="selection-favourite-row"><button type="button" class="selection-fav-btn" data-action="toggle-favourite" data-meadow-id="${meadowId}" data-is-favourite="${favourite ? "true" : "false"}">${favourite ? "Odebrat z oblíbených" : "Přidat do oblíbených"}</button></p>`
+      ? `<p class="selection-favourite-row"><button type="button" class="selection-fav-btn" data-action="toggle-favourite" data-meadow-id="${meadowId}" data-is-favourite="${favourite ? "true" : "false"}"${favouritePending ? ' disabled aria-busy="true"' : ""}>${favourite ? "Odebrat z oblíbených" : "Přidat do oblíbených"}</button></p>`
       : "";
 
   const flatness = classifyFlatness(properties);
