@@ -119,6 +119,17 @@ function buildWhereClause(array $where): string
     return implode(' AND ', $where);
 }
 
+function buildBboxPolygonWkt(float $west, float $south, float $east, float $north): string
+{
+    return sprintf(
+        'POLYGON((%1$.12F %2$.12F,%1$.12F %4$.12F,%3$.12F %4$.12F,%3$.12F %2$.12F,%1$.12F %2$.12F))',
+        $west,
+        $south,
+        $east,
+        $north
+    );
+}
+
 function countMatchingMeadows(PDO $pdo, array $where, array $params): int
 {
     $sql = 'SELECT COUNT(*) FROM meadows m WHERE ' . buildWhereClause($where);
@@ -138,18 +149,27 @@ function clusterSteps(array $bbox, int $zoom): array
     if ($zoom <= 6) {
         $columns = 8.0;
         $rows = 6.0;
-    } elseif ($zoom <= 8) {
-        $columns = 12.0;
-        $rows = 9.0;
-    } elseif ($zoom <= 10) {
+    } elseif ($zoom === 7) {
+        $columns = 8.0;
+        $rows = 6.0;
+    } elseif ($zoom === 8) {
+        $columns = 10.0;
+        $rows = 8.0;
+    } elseif ($zoom === 9) {
+        $columns = 14.0;
+        $rows = 10.0;
+    } elseif ($zoom === 10) {
+        $columns = 14.0;
+        $rows = 10.0;
+    } elseif ($zoom === 11) {
+        $columns = 16.0;
+        $rows = 12.0;
+    } elseif ($zoom === 12) {
         $columns = 18.0;
         $rows = 14.0;
-    } elseif ($zoom <= 12) {
-        $columns = 26.0;
-        $rows = 20.0;
     } else {
-        $columns = 36.0;
-        $rows = 28.0;
+        $columns = 80.0;
+        $rows = 60.0;
     }
 
     $lngStep = max(($east - $west) / $columns, 0.01);
@@ -184,24 +204,10 @@ try {
     $maxTerrainRoughnessP80M = readFloatParam('maxTerrainRoughnessP80M');
 
     $where = [
-        'm.min_lng <= :east',
-        'm.max_lng >= :west',
-        'm.min_lat <= :north',
-        'm.max_lat >= :south',
-        'm.centroid_lng >= :czWest',
-        'm.centroid_lng <= :czEast',
-        'm.centroid_lat >= :czSouth',
-        'm.centroid_lat <= :czNorth',
+        'MBRIntersects(m.bbox_polygon, ST_GeomFromText(:bboxPolygon))',
     ];
     $params = [
-        ':west' => $west,
-        ':south' => $south,
-        ':east' => $east,
-        ':north' => $north,
-        ':czWest' => CZECH_REPUBLIC_WEST,
-        ':czSouth' => CZECH_REPUBLIC_SOUTH,
-        ':czEast' => CZECH_REPUBLIC_EAST,
-        ':czNorth' => CZECH_REPUBLIC_NORTH,
+        ':bboxPolygon' => buildBboxPolygonWkt($west, $south, $east, $north),
     ];
 
     if ($minArea !== null) {
@@ -375,9 +381,10 @@ try {
                     m.nearest_building_m,
                     m.centroid_lat,
                     m.centroid_lng,
-                    m.geom_geojson,
+                    g.geom_geojson,
                     (CASE WHEN f.meadow_id IS NOT NULL THEN 1 ELSE 0 END) AS is_favourite
                 FROM meadows m
+                INNER JOIN meadow_geometries g ON g.meadow_id = m.id
                 LEFT JOIN user_favourite_meadows f
                     ON f.meadow_id = m.id AND f.user_id = :favUser
                 WHERE ' . buildWhereClause($where) . '
@@ -407,8 +414,9 @@ try {
                     m.nearest_building_m,
                     m.centroid_lat,
                     m.centroid_lng,
-                    m.geom_geojson
+                    g.geom_geojson
                 FROM meadows m
+                INNER JOIN meadow_geometries g ON g.meadow_id = m.id
                 WHERE ' . buildWhereClause($where) . '
                 ORDER BY m.area_m2 DESC
                 LIMIT :limit

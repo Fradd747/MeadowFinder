@@ -93,6 +93,7 @@ REQUEST_HEADERS = {
 ZIP_SUFFIXES = (".tif", ".tiff")
 SQL_INSERT_BATCH_SIZE = 500
 MEADOWS_EXPORT_TABLE = "meadows"
+MEADOWS_GEOMETRY_EXPORT_TABLE = "meadow_geometries"
 
 
 class SlidingWindowRateLimiter:
@@ -1984,6 +1985,109 @@ def sql_literal(value: object) -> str:
     return "'" + text.replace("'", "''") + "'"
 
 
+def quoted_identifier(name: str) -> str:
+    return "`" + name.replace("`", "``") + "`"
+
+
+def geometry_table_name(base_table: str) -> str:
+    if base_table == MEADOWS_EXPORT_TABLE:
+        return MEADOWS_GEOMETRY_EXPORT_TABLE
+    return f"{base_table}_geometries"
+
+
+def stage_table_name(base_table: str) -> str:
+    return f"{base_table}_import_stage"
+
+
+def meadow_core_columns(columns: Sequence[str]) -> list[str]:
+    return [column for column in columns if column != "geom_geojson"]
+
+
+def meadow_stage_table_sql(stage_table: str) -> str:
+    stage_ident = quoted_identifier(stage_table)
+    return f"""DROP TABLE IF EXISTS {stage_ident};
+CREATE TABLE {stage_ident} (
+    source_id VARCHAR(64) NOT NULL,
+    source_type VARCHAR(16) NOT NULL,
+    land_cover_code VARCHAR(64) NOT NULL,
+    area_ha DOUBLE NOT NULL,
+    area_m2 DOUBLE NOT NULL,
+    average_elevation_deviation_m DOUBLE DEFAULT NULL,
+    largest_flat_patch_m2 DOUBLE DEFAULT NULL,
+    largest_flat_patch_share DOUBLE DEFAULT NULL,
+    flat_area_share DOUBLE DEFAULT NULL,
+    terrain_roughness_p80_m DOUBLE DEFAULT NULL,
+    nearest_road_m DOUBLE DEFAULT NULL,
+    nearest_path_m DOUBLE DEFAULT NULL,
+    nearest_water_m DOUBLE DEFAULT NULL,
+    nearest_river_m DOUBLE DEFAULT NULL,
+    nearest_settlement_m DOUBLE DEFAULT NULL,
+    nearest_building_m DOUBLE DEFAULT NULL,
+    centroid_lat DOUBLE NOT NULL,
+    centroid_lng DOUBLE NOT NULL,
+    min_lat DOUBLE NOT NULL,
+    min_lng DOUBLE NOT NULL,
+    max_lat DOUBLE NOT NULL,
+    max_lng DOUBLE NOT NULL,
+    geom_geojson MEDIUMTEXT NOT NULL,
+    PRIMARY KEY (source_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+"""
+
+
+def meadow_bbox_polygon_sql(source_alias: str) -> str:
+    return (
+        "ST_GeomFromText(CONCAT('POLYGON((', "
+        f"{source_alias}.min_lng, ' ', {source_alias}.min_lat, ',', "
+        f"{source_alias}.min_lng, ' ', {source_alias}.max_lat, ',', "
+        f"{source_alias}.max_lng, ' ', {source_alias}.max_lat, ',', "
+        f"{source_alias}.max_lng, ' ', {source_alias}.min_lat, ',', "
+        f"{source_alias}.min_lng, ' ', {source_alias}.min_lat, '))'))"
+    )
+
+
+def meadow_stage_merge_sql(base_table: str, columns: Sequence[str]) -> str:
+    stage_table = stage_table_name(base_table)
+    geometry_table = geometry_table_name(base_table)
+    table_ident = quoted_identifier(base_table)
+    stage_ident = quoted_identifier(stage_table)
+    geometry_ident = quoted_identifier(geometry_table)
+    core_columns = meadow_core_columns(columns)
+    insert_columns = core_columns + ["bbox_polygon"]
+    update_columns = [column for column in core_columns if column != "source_id"] + [
+        "bbox_polygon",
+    ]
+    select_sql = ",\n    ".join([f"s.{column}" for column in core_columns] + [
+        meadow_bbox_polygon_sql("s"),
+    ])
+    update_sql = ",\n    ".join(f"{column} = VALUES({column})" for column in update_columns)
+
+    return f"""INSERT INTO {table_ident} (
+    {", ".join(insert_columns)}
+)
+SELECT
+    {select_sql}
+FROM {stage_ident} s
+ON DUPLICATE KEY UPDATE
+    {update_sql};
+
+DELETE m
+FROM {table_ident} m
+LEFT JOIN {stage_ident} s ON s.source_id = m.source_id
+WHERE s.source_id IS NULL;
+
+INSERT INTO {geometry_ident} (meadow_id, geom_geojson)
+SELECT m.id, s.geom_geojson
+FROM {stage_ident} s
+INNER JOIN {table_ident} m ON m.source_id = s.source_id
+ON DUPLICATE KEY UPDATE
+    geom_geojson = VALUES(geom_geojson),
+    updated_at = CURRENT_TIMESTAMP;
+
+DROP TABLE IF EXISTS {stage_ident};
+"""
+
+
 def write_sql_files(
     output_dir: Path,
     export: pd.DataFrame,
@@ -1996,24 +2100,35 @@ def write_sql_files(
     columns = list(export.columns)
     col_list = ", ".join(columns)
     rows = dataframe_rows(export)
+    stage_table = stage_table_name(MEADOWS_EXPORT_TABLE)
+    header_sql = meadow_stage_table_sql(stage_table)
+    footer_sql = meadow_stage_merge_sql(MEADOWS_EXPORT_TABLE, columns)
 
     paths: list[Path] = []
     shard_idx = 1
     path = sharded_import_path(output_dir, base, suffix, shard_idx)
     fh = path.open("w", encoding="utf-8")
     paths.append(path)
-    truncate_sql = f"TRUNCATE TABLE {MEADOWS_EXPORT_TABLE};\n"
-    fh.write(truncate_sql)
-    size = utf8_byte_length(truncate_sql)
+    fh.write(header_sql)
+    size = utf8_byte_length(header_sql)
 
     batch_row_sqls: list[str] = []
 
+    def rotate() -> None:
+        nonlocal fh, shard_idx, path, size
+        fh.close()
+        shard_idx += 1
+        path = sharded_import_path(output_dir, base, suffix, shard_idx)
+        fh = path.open("w", encoding="utf-8")
+        paths.append(path)
+        size = 0
+
     def flush_batch() -> None:
-        nonlocal fh, shard_idx, path, size, batch_row_sqls
+        nonlocal size, batch_row_sqls
         if not batch_row_sqls:
             return
         stmt = (
-            f"INSERT INTO {MEADOWS_EXPORT_TABLE} ({col_list}) VALUES "
+            f"INSERT INTO {quoted_identifier(stage_table)} ({col_list}) VALUES "
             + ", ".join(batch_row_sqls)
             + ";\n"
         )
@@ -2028,12 +2143,7 @@ def write_sql_files(
             and size > 0
             and size + stmt_b > max_size_bytes
         ):
-            fh.close()
-            shard_idx += 1
-            path = sharded_import_path(output_dir, base, suffix, shard_idx)
-            fh = path.open("w", encoding="utf-8")
-            paths.append(path)
-            size = 0
+            rotate()
         fh.write(stmt)
         size += stmt_b
         batch_row_sqls.clear()
@@ -2045,6 +2155,14 @@ def write_sql_files(
             flush_batch()
 
     flush_batch()
+    footer_b = utf8_byte_length(footer_sql)
+    if (
+        max_size_bytes is not None
+        and size > 0
+        and size + footer_b > max_size_bytes
+    ):
+        rotate()
+    fh.write(footer_sql)
     fh.close()
     return paths
 
@@ -2061,7 +2179,10 @@ def import_to_database(export: pd.DataFrame, config: DatabaseConfig, batch_size:
     columns = list(export.columns)
     column_sql = ", ".join(columns)
     placeholder_sql = ", ".join(["%s"] * len(columns))
-    insert_sql = f"INSERT INTO {config.table} ({column_sql}) VALUES ({placeholder_sql})"
+    stage_table = stage_table_name(config.table)
+    stage_ident = quoted_identifier(stage_table)
+    insert_sql = f"INSERT INTO {stage_ident} ({column_sql}) VALUES ({placeholder_sql})"
+    merge_sql = meadow_stage_merge_sql(config.table, columns)
     rows = dataframe_rows(export)
 
     connection = pymysql.connect(
@@ -2075,18 +2196,32 @@ def import_to_database(export: pd.DataFrame, config: DatabaseConfig, batch_size:
     )
     try:
         with connection.cursor() as cursor:
-            print(f"Truncating database table {config.table}...")
-            cursor.execute(f"TRUNCATE TABLE {config.table}")
+            print(f"Preparing staging table {stage_table}...")
+            for statement in [
+                part.strip()
+                for part in meadow_stage_table_sql(stage_table).split(";\n")
+                if part.strip()
+            ]:
+                cursor.execute(statement)
             total_rows = len(rows)
             for start in range(0, total_rows, batch_size):
                 end = min(start + batch_size, total_rows)
-                print(f"Inserting rows {start + 1:,}-{end:,} of {total_rows:,}...")
+                print(f"Staging rows {start + 1:,}-{end:,} of {total_rows:,}...")
                 cursor.executemany(insert_sql, rows[start:end])
+            print(f"Merging staged rows into database table {config.table}...")
+            for statement in [part.strip() for part in merge_sql.split(";\n") if part.strip()]:
+                cursor.execute(statement)
         connection.commit()
     except Exception:
         connection.rollback()
         raise
     finally:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP TABLE IF EXISTS {stage_ident}")
+            connection.commit()
+        except Exception:
+            connection.rollback()
         connection.close()
 
 

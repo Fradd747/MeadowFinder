@@ -5,13 +5,13 @@ This project builds a meadow finder for the Czech Republic using:
 - `czech-republic-260324.osm.pbf` as the OpenStreetMap source for meadow polygons tagged `landuse=meadow`
 - the same OSM extract for roads, paths, waterways, and settlement place points
 - Python for offline preprocessing
-- MySQL + PHP for the hosted app
+- MariaDB/MySQL + PHP for the hosted app
 - Leaflet for the browser map UI
 
 ## Project Layout
 
 - `scripts/prepare_meadows.py`: offline preprocessing pipeline
-- `database/schema.sql`: MySQL schema for the hosted meadow table
+- `database/schema.sql`: MariaDB/MySQL schema for the hosted meadow tables
 - `public/index.php`: main Leaflet application
 - `public/api/meadows.php`: GeoJSON filter API
 - `public/api/config.php`: database configuration loader
@@ -66,7 +66,7 @@ Run the full export:
 python scripts/prepare_meadows.py --output-type csv
 ```
 
-For a MySQL dump with batched `INSERT` statements (500 rows per statement) instead of CSV, use `--output-type sql`. To split large exports across multiple files, add e.g. `--output-max-size-mb 50` (applies to CSV or SQL shards).
+For a SQL import bundle with batched staged `INSERT` statements (500 rows per statement), use `--output-type sql`. The generated SQL now loads into a staging table, merges rows by `source_id`, refreshes `meadow_geometries`, and preserves stable `meadows.id` values for unchanged meadows. To split large exports across multiple files, add e.g. `--output-max-size-mb 50` (applies to CSV or SQL shards).
 
 The script writes or reuses:
 
@@ -81,7 +81,7 @@ Skip the preview GeoJSON when you only need the import payload and metadata:
 python scripts/prepare_meadows.py --output-type csv --skip-preview
 ```
 
-Run the full build and import directly into your local MySQL database from `public/api/config.local.php`:
+Run the full build and import directly into your local MariaDB/MySQL database from `public/api/config.local.php`:
 
 ```bash
 python scripts/prepare_meadows.py --import
@@ -97,19 +97,28 @@ python scripts/prepare_meadows.py --output-type csv --elevation-download-dir dat
 
 Outputs are written into `data/processed/`:
 
-- `meadows_import.csv` (with `--output-type csv`) or `meadows_import.sql` (with `--output-type sql`): upload or run against MySQL; optional `--output-max-size-mb` adds `meadows_import_2.csv` / `_2.sql`, and so on
+- `meadows_import.csv` (with `--output-type csv`) or `meadows_import.sql` (with `--output-type sql`): upload or run against MariaDB/MySQL; optional `--output-max-size-mb` adds `meadows_import_2.csv` / `_2.sql`, and so on
 - `meadows_preview.geojson`: preview output for GIS or browser inspection
 - `build_metadata.json`: small build summary
 
 When `--skip-preview` is used, the script skips `meadows_preview.geojson` and records only the files it actually wrote in `build_metadata.json`.
 
-When `--import` is used, the script truncates the `meadows` table first, imports rows directly into MySQL, still writes the preview and metadata files unless `--skip-preview` is set, and skips file export (`--output-type` is not required).
+When `--import` is used, the script stages rows in a temporary import table, merges them into `meadows` by `source_id`, refreshes `meadow_geometries`, still writes the preview and metadata files unless `--skip-preview` is set, and skips file export (`--output-type` is not required).
 
 ## 4. Create the Database
 
-Create the tables from `database/schema.sql` (`meadows`, `users`, `user_favourite_meadows`).
+Create the tables from `database/schema.sql` (`meadows`, `meadow_geometries`, `users`, `user_favourite_meadows`).
 
-Then either import `data/processed/meadows_import.csv` (or run the generated `.sql` files in order) using phpMyAdmin or the MySQL client, or run `python scripts/prepare_meadows.py --import` to load it automatically from Python.
+Use a recent MariaDB/MySQL release with InnoDB spatial index support for `POLYGON` columns.
+
+Then either:
+
+- run `python scripts/prepare_meadows.py --import` to stage and merge data directly from Python
+- generate `--output-type sql` and run the resulting `.sql` files in order using phpMyAdmin or the SQL client
+
+The import flow now merges by `source_id` instead of truncating `meadows`, so existing `meadows.id` values stay stable for unchanged rows and `user_favourite_meadows` remains valid unless a meadow truly disappears from the dataset.
+
+CSV output is still available, but it is now primarily a staging/export artifact for custom workflows rather than a direct final-table import format.
 
 Expected CSV column order:
 
@@ -128,13 +137,14 @@ Expected CSV column order:
 13. `nearest_water_m`
 14. `nearest_river_m`
 15. `nearest_settlement_m`
-16. `centroid_lat`
-17. `centroid_lng`
-18. `min_lat`
-19. `min_lng`
-20. `max_lat`
-21. `max_lng`
-22. `geom_geojson`
+16. `nearest_building_m`
+17. `centroid_lat`
+18. `centroid_lng`
+19. `min_lat`
+20. `min_lng`
+21. `max_lat`
+22. `max_lng`
+23. `geom_geojson`
 
 Terrain columns:
 
@@ -190,4 +200,5 @@ If your host uses a subdirectory for the app, keep the `api/` and `assets/` path
 - Flatness is derived from local DEM relief in a small moving window. The default preprocessing marks pixels as flat when local relief is at most `1.5 m`, then exports both connected-flat-patch and overall flat-area metrics.
 - Meadow candidates come from OpenStreetMap polygons tagged `landuse=meadow`, so output quality depends on local OSM coverage and tagging consistency.
 - The hosted app does not compute spatial distances live. All heavy GIS work happens locally in Python before upload.
-- The API filters by viewport and numeric values only, which keeps PHP and MySQL simple enough for shared hosting.
+- The API now uses a spatial bbox prefilter on precomputed meadow envelopes, then applies the numeric filters in SQL.
+- Display geometry is stored in `meadow_geometries`, so viewport counts and cluster queries can stay on the slimmer `meadows` table.

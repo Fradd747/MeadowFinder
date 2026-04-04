@@ -22,13 +22,12 @@ CREATE TABLE IF NOT EXISTS meadows (
     min_lng DOUBLE NOT NULL,
     max_lat DOUBLE NOT NULL,
     max_lng DOUBLE NOT NULL,
-    geom_geojson MEDIUMTEXT NOT NULL,
+    bbox_polygon POLYGON NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uq_meadows_source_id (source_id),
     KEY idx_meadows_area_m2 (area_m2),
-    KEY idx_meadows_largest_flat_patch_m2 (largest_flat_patch_m2),
     KEY idx_meadows_largest_flat_patch_share (largest_flat_patch_share),
     KEY idx_meadows_flat_area_share (flat_area_share),
     KEY idx_meadows_terrain_roughness_p80_m (terrain_roughness_p80_m),
@@ -38,9 +37,15 @@ CREATE TABLE IF NOT EXISTS meadows (
     KEY idx_meadows_nearest_river_m (nearest_river_m),
     KEY idx_meadows_nearest_settlement_m (nearest_settlement_m),
     KEY idx_meadows_nearest_building_m (nearest_building_m),
-    KEY idx_meadows_centroid (centroid_lat, centroid_lng),
-    KEY idx_meadows_bbox_lat (min_lat, max_lat),
-    KEY idx_meadows_bbox_lng (min_lng, max_lng)
+    SPATIAL INDEX idx_meadows_bbox_polygon (bbox_polygon)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS meadow_geometries (
+    meadow_id BIGINT UNSIGNED NOT NULL,
+    geom_geojson MEDIUMTEXT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (meadow_id),
+    CONSTRAINT fk_meadow_geometries_meadow FOREIGN KEY (meadow_id) REFERENCES meadows (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -52,8 +57,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_users_google_sub (google_sub),
-    KEY idx_users_email (email(191))
+    UNIQUE KEY uq_users_google_sub (google_sub)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS user_favourite_meadows (
