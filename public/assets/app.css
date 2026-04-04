@@ -1536,7 +1536,13 @@ body.legal-page {
     }
 
     .login-modal-dialog {
-        width: min(400px, calc(100vw - 1.5rem));
+        width: min(
+            400px,
+            calc(
+                100vw - env(safe-area-inset-left, 0px) -
+                    env(safe-area-inset-right, 0px) - 3rem
+            )
+        );
         padding: 1.25rem;
     }
 
@@ -1693,7 +1699,16 @@ body.legal-page {
     }
 
     .login-modal-dialog {
-        padding: 1rem;
+        width: min(
+            400px,
+            calc(
+                100vw - env(safe-area-inset-left, 0px) -
+                    env(safe-area-inset-right, 0px) - 3.5rem
+            )
+        );
+        padding-block: 1rem;
+        padding-inline: max(1.35rem, env(safe-area-inset-left, 0px))
+            max(1.35rem, env(safe-area-inset-right, 0px));
         border-radius: 0.8rem;
     }
 
