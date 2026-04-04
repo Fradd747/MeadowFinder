@@ -1728,6 +1728,22 @@ def to_geojson_text(geometries: Iterable[BaseGeometry]) -> list[str]:
     return shapely.to_geojson(geometry_array).tolist()
 
 
+def bbox_polygon_wkt(min_lng: float, min_lat: float, max_lng: float, max_lat: float) -> str:
+    eps = 0.000001
+    if min_lat == max_lat:
+        max_lat += eps
+    if min_lng == max_lng:
+        max_lng += eps
+    c = f"{min_lng:.10f} {min_lat:.10f}"
+    return (
+        f"POLYGON(({c},"
+        f"{min_lng:.10f} {max_lat:.10f},"
+        f"{max_lng:.10f} {max_lat:.10f},"
+        f"{max_lng:.10f} {min_lat:.10f},"
+        f"{c}))"
+    )
+
+
 def compute_display_geometries(
     meadow_geometries: MeadowGeometries,
     simplify_tolerance: float,
@@ -1794,6 +1810,14 @@ def build_export_frame(
     timed_substep(detailed_timings, "GeoJSON serialization", geojson_start)
 
     export_start = perf_counter()
+    min_lng_arr = bounds[:, 0]
+    min_lat_arr = bounds[:, 1]
+    max_lng_arr = bounds[:, 2]
+    max_lat_arr = bounds[:, 3]
+    bbox_wkt = np.array([
+        bbox_polygon_wkt(min_lng_arr[i], min_lat_arr[i], max_lng_arr[i], max_lat_arr[i])
+        for i in range(len(min_lat_arr))
+    ])
     export = pd.DataFrame(
         {
             "source_id": meadows["source_id"],
@@ -1814,11 +1838,12 @@ def build_export_frame(
             "nearest_building_m": meadows["nearest_building_m"],
             "centroid_lat": centroids.y,
             "centroid_lng": centroids.x,
-            "min_lat": bounds[:, 1],
-            "min_lng": bounds[:, 0],
-            "max_lat": bounds[:, 3],
-            "max_lng": bounds[:, 2],
+            "min_lat": min_lat_arr,
+            "min_lng": min_lng_arr,
+            "max_lat": max_lat_arr,
+            "max_lng": max_lng_arr,
             "geom_geojson": geom_geojson,
+            "bbox_wkt": bbox_wkt,
         }
     )
     timed_substep(detailed_timings, "Export DataFrame assembly", export_start)
@@ -2000,7 +2025,7 @@ def stage_table_name(base_table: str) -> str:
 
 
 def meadow_core_columns(columns: Sequence[str]) -> list[str]:
-    return [column for column in columns if column != "geom_geojson"]
+    return [column for column in columns if column not in ("geom_geojson", "bbox_wkt")]
 
 
 def meadow_stage_table_sql(stage_table: str) -> str:
@@ -2030,20 +2055,14 @@ CREATE TABLE {stage_ident} (
     max_lat DOUBLE NOT NULL,
     max_lng DOUBLE NOT NULL,
     geom_geojson MEDIUMTEXT NOT NULL,
+    bbox_wkt TEXT NOT NULL,
     PRIMARY KEY (source_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 """
 
 
 def meadow_bbox_polygon_sql(source_alias: str) -> str:
-    return (
-        "ST_GeomFromText(CONCAT('POLYGON((', "
-        f"{source_alias}.min_lng, ' ', {source_alias}.min_lat, ',', "
-        f"{source_alias}.min_lng, ' ', {source_alias}.max_lat, ',', "
-        f"{source_alias}.max_lng, ' ', {source_alias}.max_lat, ',', "
-        f"{source_alias}.max_lng, ' ', {source_alias}.min_lat, ',', "
-        f"{source_alias}.min_lng, ' ', {source_alias}.min_lat, '))'))"
-    )
+    return f"ST_GeomFromText({source_alias}.bbox_wkt)"
 
 
 def meadow_stage_merge_sql(base_table: str, columns: Sequence[str]) -> str:
