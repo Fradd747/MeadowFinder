@@ -14,7 +14,7 @@ This project builds a meadow finder for the Czech Republic using:
 - `database/schema.sql`: MariaDB/MySQL schema for the hosted meadow tables
 - `public/index.php`: main Leaflet application
 - `public/api/meadows.php`: GeoJSON filter API
-- `public/api/config.php`: database configuration loader
+- `public/config/config.php`: database configuration loader
 
 ## 1. Install Python Dependencies
 
@@ -81,7 +81,7 @@ Skip the preview GeoJSON when you only need the import payload and metadata:
 python scripts/prepare_meadows.py --output-type csv --skip-preview
 ```
 
-Run the full build and import directly into your local MariaDB/MySQL database from `public/api/config.local.php`:
+Run the full build and import directly into your local MariaDB/MySQL database from `public/config/config.local.php`:
 
 ```bash
 python scripts/prepare_meadows.py --import
@@ -158,17 +158,17 @@ Terrain columns:
 
 Copy:
 
-- `public/api/config.local.php.example`
+- `public/config/config.local.php.example`
 
 to:
 
-- `public/api/config.local.php`
+- `public/config/config.local.php`
 
 Then fill in your real MySQL credentials.
 
 ## 6. Google Sign-In (oblíbené louky)
 
-The hosted app can optionally use **Google OAuth** for accounts and per-user favourite meadows. Set these in `config.local.php` or via environment variables:
+The hosted app can optionally use **Google OAuth** for accounts and per-user favourite meadows. Set these in `public/config/config.local.php` or via environment variables:
 
 - `google_client_id` / `MEADOW_GOOGLE_CLIENT_ID`
 - `google_client_secret` / `MEADOW_GOOGLE_CLIENT_SECRET`
@@ -182,7 +182,7 @@ The hosted app can optionally use **Google OAuth** for accounts and per-user fav
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**:
    - **Authorized JavaScript origins**: your site origin(s), e.g. `https://your-domain.example` (for local testing you can add `http://localhost:8080` or whatever port you use).
    - **Authorized redirect URIs**: the same URL as `oauth_redirect_uri` above (must match character for character).
-4. Copy the **Client ID** and **Client secret** into `config.local.php` (never commit secrets).
+4. Copy the **Client ID** and **Client secret** into `public/config/config.local.php` (never commit secrets).
 5. While the OAuth app is in **Testing**, add every sign-in account under **Test users**. To open sign-in to everyone, publish the app and complete any verification Google requests.
 
 Production should use **HTTPS** for the redirect URI and session cookies. Local development may use `http://localhost` with a matching redirect URI.

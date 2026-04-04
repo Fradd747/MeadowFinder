@@ -362,7 +362,7 @@ def project_root() -> Path:
 
 
 def local_db_config_path() -> Path:
-    return project_root() / "public" / "api" / "config.local.php"
+    return project_root() / "public" / "config" / "config.local.php"
 
 
 def timed_print(label: str, start_time: float) -> None:
