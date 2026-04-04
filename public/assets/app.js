@@ -472,6 +472,26 @@ function closeMobileMapPanels() {
   setMobileMapPanel(null);
 }
 
+function focusMapSearchInput() {
+  const input = mapSearchControl?.querySelector(".map-search-input");
+  if (!(input instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const placeCursorAtEnd = () => {
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  };
+
+  input.focus({ preventScroll: true });
+  placeCursorAtEnd();
+
+  window.requestAnimationFrame(() => {
+    input.focus({ preventScroll: true });
+    placeCursorAtEnd();
+  });
+}
+
 function syncMobileSidebarState() {
   if (!sidebar || !sidebarToggle || !sidebarBackdrop) {
     return;
@@ -824,6 +844,7 @@ searchToggle?.addEventListener("click", () => {
   }
   setMobileSidebarOpen(false);
   setMobileMapPanel("search");
+  focusMapSearchInput();
 });
 
 layersToggle?.addEventListener("click", () => {
