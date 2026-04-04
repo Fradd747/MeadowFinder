@@ -114,6 +114,20 @@ function readMode(): string
     return $mode;
 }
 
+function readCompactClusters(): bool
+{
+    if (!isset($_GET['compactClusters'])) {
+        return false;
+    }
+
+    $value = $_GET['compactClusters'];
+    if (!is_scalar($value)) {
+        respondWithError(400, 'Neplatný parametr compactClusters.');
+    }
+
+    return (string) $value === '1';
+}
+
 function buildWhereClause(array $where): string
 {
     return implode(' AND ', $where);
@@ -142,34 +156,39 @@ function countMatchingMeadows(PDO $pdo, array $where, array $params): int
     return (int) $statement->fetchColumn();
 }
 
-function clusterSteps(array $bbox, int $zoom): array
+function clusterSteps(array $bbox, int $zoom, bool $compactClusters): array
 {
     [$west, $south, $east, $north] = $bbox;
 
     if ($zoom <= 6) {
         $columns = 8.0;
-        $rows = 6.0;
+        $rows = 8.0;
     } elseif ($zoom === 7) {
         $columns = 8.0;
-        $rows = 6.0;
+        $rows = 8.0;
     } elseif ($zoom === 8) {
         $columns = 10.0;
-        $rows = 8.0;
+        $rows = 10.0;
     } elseif ($zoom === 9) {
         $columns = 14.0;
-        $rows = 10.0;
+        $rows = 14.0;
     } elseif ($zoom === 10) {
         $columns = 14.0;
-        $rows = 10.0;
+        $rows = 14.0;
     } elseif ($zoom === 11) {
-        $columns = 16.0;
+        $columns = 12.0;
         $rows = 12.0;
     } elseif ($zoom === 12) {
-        $columns = 18.0;
-        $rows = 14.0;
+        $columns = 16.0;
+        $rows = 16.0;
     } else {
         $columns = 80.0;
         $rows = 60.0;
+    }
+
+    if ($compactClusters) {
+        $columns = $columns / 2.0;
+        $rows = $rows / 2.0;
     }
 
     $lngStep = max(($east - $west) / $columns, 0.01);
@@ -184,6 +203,7 @@ try {
 
     [$west, $south, $east, $north] = readBbox();
     $mode = readMode();
+    $compactClusters = readCompactClusters();
     $zoom = readIntParam('zoom', 7);
     $minArea = readFloatParam('minArea');
     $maxArea = readFloatParam('maxArea');
@@ -285,7 +305,7 @@ try {
     $totalCount = countMatchingMeadows($pdo, $where, $params);
 
     if ($mode === 'clusters') {
-        [$lngStep, $latStep] = clusterSteps([$west, $south, $east, $north], $zoom);
+        [$lngStep, $latStep] = clusterSteps([$west, $south, $east, $north], $zoom, $compactClusters);
         $clusterParams = $params + [
             ':clusterWest' => $west,
             ':clusterSouth' => $south,

@@ -885,6 +885,7 @@ mobileSidebarQuery.addEventListener("change", () => {
 phoneLayoutQuery.addEventListener("change", () => {
   syncMobileMapPanels();
   syncBasemapControlState();
+  debouncedRefresh();
 });
 
 if (selection) {
@@ -1597,6 +1598,10 @@ function currentParams() {
     mode: currentMode(),
     zoom: String(Math.round(map.getZoom())),
   });
+
+  if (isPhoneLayoutViewport()) {
+    params.set("compactClusters", "1");
+  }
 
   [
     ["minArea", rangeSliderValue("area", "min")],
