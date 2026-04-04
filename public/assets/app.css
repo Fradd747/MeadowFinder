@@ -1228,7 +1228,10 @@ body {
     margin: 1rem 0 0;
     padding-top: 0.75rem;
     border-top: 1px solid #e8efe9;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
 .sidebar-legal a {

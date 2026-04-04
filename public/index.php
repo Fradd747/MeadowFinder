@@ -345,9 +345,8 @@ declare(strict_types=1);
             <div id="userPanel" class="user-panel" aria-label="Účet"></div>
 
             <p class="sidebar-legal">
-                <a href="privacy.php">Ochrana osobních údajů</a>
-                <span aria-hidden="true"> · </span>
-                <a href="terms.php">Podmínky použití</a>
+                <a href="privacy.php">Zásady ochrany osobních údajů</a>
+                <a href="terms.php">Obchodní podmínky</a>
             </p>
         </aside>
 
