@@ -890,6 +890,7 @@ if (selection) {
 const formatSliderArea = (value) => `${Number(value).toLocaleString("cs-CZ")} m²`;
 const formatSliderDistance = (value) => `${Number(value).toLocaleString("cs-CZ")} m`;
 const DEFAULT_SLOPE_INDEX = 5;
+const FILTER_STORAGE_KEY = "meadowFinder.filters.v1";
 const MAP_CONTEXT_MENU_MARGIN = 12;
 const advancedFlatnessFieldConfig = {
   minLargestFlatPatchShare: {
@@ -1090,6 +1091,7 @@ const sliderConfig = {
   },
 };
 const rangeSliderIds = Object.keys(rangeSliderConfig);
+const persistedFilterInputIds = [...Object.keys(sliderConfig), ...advancedFlatnessFieldIds];
 
 mapContextMenu.className = "map-context-menu";
 mapContextMenu.hidden = true;
@@ -1309,6 +1311,81 @@ function syncAllSliderValues() {
     clampRangeSliderValues(rangeId);
     syncRangeSliderValue(rangeId);
   });
+}
+
+function readPersistedFilterState() {
+  try {
+    const rawState = window.localStorage.getItem(FILTER_STORAGE_KEY);
+    if (!rawState) {
+      return null;
+    }
+    const parsedState = JSON.parse(rawState);
+    if (!parsedState || typeof parsedState !== "object" || Array.isArray(parsedState)) {
+      return null;
+    }
+    return parsedState;
+  } catch {
+    return null;
+  }
+}
+
+function normalizePersistedInputValue(input, rawValue) {
+  if (rawValue === "" && input.type !== "range") {
+    return "";
+  }
+
+  const numericValue = Number(rawValue);
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+
+  let normalizedValue = numericValue;
+  if (input.min !== "") {
+    normalizedValue = Math.max(normalizedValue, Number(input.min));
+  }
+  if (input.max !== "") {
+    normalizedValue = Math.min(normalizedValue, Number(input.max));
+  }
+  return String(normalizedValue);
+}
+
+function persistFilterState() {
+  const state = persistedFilterInputIds.reduce((values, id) => {
+    const input = document.getElementById(id);
+    if (input) {
+      values[id] = input.value;
+    }
+    return values;
+  }, {});
+
+  try {
+    window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    /* ignore storage failures */
+  }
+}
+
+function restorePersistedFilterState() {
+  const persistedState = readPersistedFilterState();
+  if (!persistedState) {
+    return false;
+  }
+
+  persistedFilterInputIds.forEach((id) => {
+    const input = document.getElementById(id);
+    if (!input || !(id in persistedState)) {
+      return;
+    }
+
+    const restoredValue = normalizePersistedInputValue(input, String(persistedState[id]).trim());
+    if (restoredValue !== null) {
+      input.value = restoredValue;
+    }
+  });
+
+  syncAllSliderValues();
+  syncSlopeFilterUi();
+  return true;
 }
 
 function advancedFlatnessValue(id) {
@@ -2001,6 +2078,7 @@ rangeSliderIds.forEach((rangeId) => {
       clampRangeSliderValues(rangeId, inputId);
       setActiveRangeThumb(rangeId, inputId);
       syncRangeSliderValue(rangeId);
+      persistFilterState();
       debouncedFilterRefresh();
     });
     input.addEventListener("pointerdown", () => setActiveRangeThumb(rangeId, inputId));
@@ -2012,6 +2090,7 @@ slopeFilterInput.addEventListener("input", () => {
   const index = Number(slopeFilterInput.value);
   applySlopeLevel(index);
   selection.innerHTML = emptySelectionHtml;
+  persistFilterState();
   debouncedFilterRefresh();
 });
 
@@ -2019,6 +2098,7 @@ advancedFlatnessFieldIds.forEach((id) => {
   const input = document.getElementById(id);
   input.addEventListener("input", () => {
     syncSlopeFilterUi();
+    persistFilterState();
     debouncedFilterRefresh();
   });
 });
@@ -2033,6 +2113,7 @@ resetButton.addEventListener("click", () => {
   });
   setFlatnessThresholds(slopeFilterLevels[DEFAULT_SLOPE_INDEX].thresholds);
   syncAllSliderValues();
+  persistFilterState();
   selection.innerHTML = emptySelectionHtml;
   refreshMeadows();
 });
@@ -2075,8 +2156,10 @@ initAnimatedDetailsPanel(filtersPanel, filtersPanelBody);
 syncMobileSidebarState();
 syncMobileMapPanels();
 selection.innerHTML = emptySelectionHtml;
-syncAllSliderValues();
-setFlatnessThresholds(slopeFilterLevels[DEFAULT_SLOPE_INDEX].thresholds);
+if (!restorePersistedFilterState()) {
+  syncAllSliderValues();
+  setFlatnessThresholds(slopeFilterLevels[DEFAULT_SLOPE_INDEX].thresholds);
+}
 syncCadastralKnPointerCursor();
 readAuthErrorFromUrl();
 void (async () => {
