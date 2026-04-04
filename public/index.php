@@ -337,6 +337,8 @@ declare(strict_types=1);
                 <p>Zde se zobrazí podrobnosti o parcele.</p>
             </div>
 
+            <div id="userPanel" class="user-panel" aria-label="Účet"></div>
+
             <p class="sidebar-legal">
                 <a href="privacy.php">Ochrana osobních údajů</a>
                 <span aria-hidden="true"> · </span>
@@ -348,8 +350,6 @@ declare(strict_types=1);
             <div id="map"></div>
         </main>
     </div>
-
-    <div id="userPanel" class="user-panel" aria-label="Účet"></div>
 
     <div id="loginModal" class="login-modal" hidden>
         <div class="login-modal-backdrop" tabindex="-1"></div>

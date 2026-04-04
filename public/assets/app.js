@@ -486,19 +486,51 @@ function renderUserPanel() {
   if (!userPanel) {
     return;
   }
+  const googleMark = `
+    <span class="user-panel-google-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path fill="#4285F4" d="M21.6 12.23c0-.68-.06-1.33-.18-1.95H12v3.69h5.39a4.6 4.6 0 0 1-1.99 3.02v2.5h3.22c1.88-1.73 2.98-4.28 2.98-7.26Z"></path>
+        <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.61-2.44l-3.22-2.5c-.89.6-2.03.95-3.39.95-2.61 0-4.82-1.76-5.61-4.12H3.06v2.58A9.99 9.99 0 0 0 12 22Z"></path>
+        <path fill="#FBBC05" d="M6.39 13.89A5.98 5.98 0 0 1 6.08 12c0-.66.11-1.31.31-1.89V7.53H3.06A9.99 9.99 0 0 0 2 12c0 1.61.39 3.13 1.06 4.47l3.33-2.58Z"></path>
+        <path fill="#EA4335" d="M12 5.98c1.47 0 2.78.5 3.82 1.48l2.86-2.86C16.95 2.98 14.69 2 12 2a9.99 9.99 0 0 0-8.94 5.53l3.33 2.58c.79-2.36 3-4.13 5.61-4.13Z"></path>
+      </svg>
+    </span>`;
   if (!oauthConfigured) {
-    userPanel.innerHTML = `<span class="user-panel-hint">Přihlášení není k dispozici</span>`;
+    userPanel.innerHTML = `
+      <div class="user-panel-content">
+        <span class="user-panel-kicker">Účet</span>
+        <strong class="user-panel-title">Přihlášení není k dispozici</strong>
+        <p class="user-panel-copy">Google přihlášení zatím není pro tuto instalaci nastavené.</p>
+      </div>`;
     return;
   }
   if (!authUser) {
-    userPanel.innerHTML = `<button type="button" class="user-panel-login">Přihlásit se</button>`;
+    userPanel.innerHTML = `
+      <div class="user-panel-content">
+        <span class="user-panel-kicker">Účet</span>
+        <strong class="user-panel-title">Ukládejte si oblíbené louky</strong>
+        <p class="user-panel-copy">Přihlaste se a mějte své vybrané louky po ruce na každém zařízení.</p>
+      </div>
+      <a class="user-panel-login" href="api/auth_start.php">
+        ${googleMark}
+        <span>Přihlásit se přes Google</span>
+      </a>`;
     return;
   }
   const safeName = escapeHtml(authUser.display_name || "");
   const avatar = authUser.avatar_url
-    ? `<img src="${escapeHtml(authUser.avatar_url)}" alt="" width="36" height="36" class="user-panel-avatar" referrerpolicy="no-referrer">`
+    ? `<img src="${escapeHtml(authUser.avatar_url)}" alt="" width="44" height="44" class="user-panel-avatar" referrerpolicy="no-referrer">`
     : `<span class="user-panel-avatar-fallback" aria-hidden="true"></span>`;
-  userPanel.innerHTML = `${avatar}<span class="user-panel-name">${safeName}</span><button type="button" class="user-panel-logout">Odhlásit se</button>`;
+  userPanel.innerHTML = `
+    <div class="user-panel-profile">
+      ${avatar}
+      <div class="user-panel-content">
+        <span class="user-panel-kicker">Přihlášeno přes Google</span>
+        <span class="user-panel-name">${safeName}</span>
+        <p class="user-panel-copy">Oblíbené louky se ukládají k vašemu účtu.</p>
+      </div>
+    </div>
+    <button type="button" class="user-panel-logout">Odhlásit se</button>`;
 }
 
 function openLoginModal() {
@@ -604,9 +636,6 @@ function readAuthErrorFromUrl() {
 
 if (userPanel) {
   userPanel.addEventListener("click", (event) => {
-    if (event.target.closest(".user-panel-login")) {
-      openLoginModal();
-    }
     if (event.target.closest(".user-panel-logout")) {
       void logout();
     }
