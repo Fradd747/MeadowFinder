@@ -144,18 +144,6 @@ function buildBboxPolygonWkt(float $west, float $south, float $east, float $nort
     );
 }
 
-function countMatchingMeadows(PDO $pdo, array $where, array $params): int
-{
-    $sql = 'SELECT COUNT(*) FROM meadows m WHERE ' . buildWhereClause($where);
-    $statement = $pdo->prepare($sql);
-    foreach ($params as $key => $value) {
-        $statement->bindValue($key, $value);
-    }
-    $statement->execute();
-
-    return (int) $statement->fetchColumn();
-}
-
 function clusterSteps(array $bbox, int $zoom, bool $compactClusters): array
 {
     [$west, $south, $east, $north] = $bbox;
@@ -300,9 +288,10 @@ try {
     }
 
     $sessionUserId = meadowFinderSessionUserId();
+    session_write_close();
 
     $features = [];
-    $totalCount = countMatchingMeadows($pdo, $where, $params);
+    $totalCount = 0;
 
     if ($mode === 'clusters') {
         [$lngStep, $latStep] = clusterSteps([$west, $south, $east, $north], $zoom, $compactClusters);
@@ -353,6 +342,7 @@ try {
         $rows = $statement->fetchAll();
 
         foreach ($rows as $row) {
+            $totalCount += (int) $row['meadow_count'];
             $lat = isset($row['centroid_lat']) ? (float) $row['centroid_lat'] : null;
             $lng = isset($row['centroid_lng']) ? (float) $row['centroid_lng'] : null;
             if ($lat === null || $lng === null) {
@@ -402,6 +392,7 @@ try {
                     m.centroid_lat,
                     m.centroid_lng,
                     g.geom_geojson,
+                    COUNT(*) OVER() AS total_count,
                     (CASE WHEN f.meadow_id IS NOT NULL THEN 1 ELSE 0 END) AS is_favourite
                 FROM meadows m
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
@@ -434,7 +425,8 @@ try {
                     m.nearest_building_m,
                     m.centroid_lat,
                     m.centroid_lng,
-                    g.geom_geojson
+                    g.geom_geojson,
+                    COUNT(*) OVER() AS total_count
                 FROM meadows m
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
                 WHERE ' . buildWhereClause($where) . '
@@ -453,6 +445,7 @@ try {
         $statement->bindValue(':limit', POLYGON_RESULT_LIMIT, PDO::PARAM_INT);
         $statement->execute();
         $rows = $statement->fetchAll();
+        $totalCount = count($rows) > 0 ? (int) $rows[0]['total_count'] : 0;
 
         foreach ($rows as $row) {
             try {
