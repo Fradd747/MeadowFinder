@@ -1276,6 +1276,24 @@ h6,
     z-index: 6000;
 }
 
+.welcome-modal {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 180ms ease, visibility 0s linear 180ms;
+}
+
+.welcome-modal.is-visible,
+.welcome-modal.is-closing {
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+}
+
+.welcome-modal.is-visible {
+    opacity: 1;
+}
+
 .welcome-modal[hidden],
 .login-modal[hidden] {
     display: none;
@@ -1286,6 +1304,15 @@ h6,
     position: absolute;
     inset: 0;
     background: rgba(23, 35, 28, 0.45);
+}
+
+.welcome-modal-backdrop {
+    opacity: 0;
+    transition: opacity 180ms ease;
+}
+
+.welcome-modal.is-visible .welcome-modal-backdrop {
+    opacity: 1;
 }
 
 .welcome-modal-dialog,
@@ -1299,6 +1326,17 @@ h6,
     background: #ffffff;
     border: 1px solid #d9e4da;
     box-shadow: 0 20px 50px rgba(23, 35, 28, 0.2);
+}
+
+.welcome-modal-dialog {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.985);
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.welcome-modal.is-visible .welcome-modal-dialog {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
 }
 
 .login-modal-dialog {
@@ -1462,6 +1500,14 @@ h6,
     width: 1.1rem;
     height: 1.1rem;
     fill: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .welcome-modal,
+    .welcome-modal-backdrop,
+    .welcome-modal-dialog {
+        transition: none;
+    }
 }
 
 .login-modal-legal {

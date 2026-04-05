@@ -735,6 +735,9 @@ function shouldShowWelcomeModal() {
   }
 }
 
+const WELCOME_MODAL_CLOSE_DURATION_MS = 180;
+let welcomeModalCloseTimeoutId = null;
+
 function persistWelcomeModalPreference() {
   try {
     if (welcomeModalDontShow?.checked) {
@@ -751,10 +754,18 @@ function openWelcomeModal() {
   if (!welcomeModal || !shouldShowWelcomeModal()) {
     return;
   }
+  if (welcomeModalCloseTimeoutId !== null) {
+    window.clearTimeout(welcomeModalCloseTimeoutId);
+    welcomeModalCloseTimeoutId = null;
+  }
   if (welcomeModalDontShow) {
     welcomeModalDontShow.checked = false;
   }
   welcomeModal.hidden = false;
+  welcomeModal.classList.remove("is-closing");
+  window.requestAnimationFrame(() => {
+    welcomeModal.classList.add("is-visible");
+  });
 }
 
 function closeWelcomeModal() {
@@ -762,7 +773,16 @@ function closeWelcomeModal() {
     return;
   }
   persistWelcomeModalPreference();
-  welcomeModal.hidden = true;
+  welcomeModal.classList.remove("is-visible");
+  welcomeModal.classList.add("is-closing");
+  if (welcomeModalCloseTimeoutId !== null) {
+    window.clearTimeout(welcomeModalCloseTimeoutId);
+  }
+  welcomeModalCloseTimeoutId = window.setTimeout(() => {
+    welcomeModal.hidden = true;
+    welcomeModal.classList.remove("is-closing");
+    welcomeModalCloseTimeoutId = null;
+  }, WELCOME_MODAL_CLOSE_DURATION_MS);
 }
 
 function maybeOpenWelcomeModal() {
