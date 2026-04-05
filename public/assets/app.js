@@ -998,7 +998,7 @@ if (selection) {
 }
 const formatSliderArea = (value) => `${Number(value).toLocaleString("cs-CZ")} m²`;
 const formatSliderDistance = (value) => `${Number(value).toLocaleString("cs-CZ")} m`;
-const DEFAULT_SLOPE_INDEX = 5;
+const DEFAULT_SLOPE_INDEX = 3;
 const FILTER_STORAGE_KEY = "meadowFinder.filters.v1";
 const WELCOME_MODAL_STORAGE_KEY = "meadowFinder.welcomeModal.v1";
 const MAP_CONTEXT_MENU_MARGIN = 12;
@@ -1076,7 +1076,7 @@ const rangeSliderConfig = {
     minInputId: "minArea",
     maxInputId: "maxArea",
     outputId: "areaRangeValue",
-    defaultMinValue: 1000,
+    defaultMinValue: 500,
     defaultMaxValue: 50000,
     format: formatSliderArea,
   },
@@ -1086,7 +1086,7 @@ const rangeSliderConfig = {
     maxInputId: "maxRoad",
     outputId: "roadRangeValue",
     defaultMinValue: 0,
-    defaultMaxValue: 5000,
+    defaultMaxValue: 2000,
     format: formatSliderDistance,
   },
   path: {
@@ -1095,7 +1095,7 @@ const rangeSliderConfig = {
     maxInputId: "maxPath",
     outputId: "pathRangeValue",
     defaultMinValue: 0,
-    defaultMaxValue: 5000,
+    defaultMaxValue: 250,
     format: formatSliderDistance,
   },
   water: {
@@ -1104,7 +1104,7 @@ const rangeSliderConfig = {
     maxInputId: "maxWater",
     outputId: "waterRangeValue",
     defaultMinValue: 0,
-    defaultMaxValue: 5000,
+    defaultMaxValue: 150,
     format: formatSliderDistance,
   },
   river: {
@@ -1113,7 +1113,7 @@ const rangeSliderConfig = {
     maxInputId: "maxRiver",
     outputId: "riverRangeValue",
     defaultMinValue: 0,
-    defaultMaxValue: 5000,
+    defaultMaxValue: 3000,
     format: formatSliderDistance,
   },
   settlement: {
@@ -1121,8 +1121,8 @@ const rangeSliderConfig = {
     minInputId: "minSettlement",
     maxInputId: "maxSettlement",
     outputId: "settlementRangeValue",
-    defaultMinValue: 0,
-    defaultMaxValue: 5000,
+    defaultMinValue: 600,
+    defaultMaxValue: 3000,
     format: formatSliderDistance,
   },
   building: {
@@ -1130,14 +1130,14 @@ const rangeSliderConfig = {
     minInputId: "minBuilding",
     maxInputId: "maxBuilding",
     outputId: "buildingRangeValue",
-    defaultMinValue: 0,
-    defaultMaxValue: 5000,
+    defaultMinValue: 150,
+    defaultMaxValue: 3000,
     format: formatSliderDistance,
   },
 };
 const sliderConfig = {
   minArea: {
-    defaultValue: 1000,
+    defaultValue: 500,
     format: formatSliderArea,
   },
   maxArea: {
@@ -1150,7 +1150,7 @@ const sliderConfig = {
     format: formatSliderDistance,
   },
   maxRoad: {
-    defaultValue: 5000,
+    defaultValue: 2000,
     isUnlimitedAtMax: true,
     format: (value, input) => (Number(value) >= Number(input.max) ? "Bez limitu" : formatSliderDistance(value)),
   },
@@ -1159,7 +1159,7 @@ const sliderConfig = {
     format: formatSliderDistance,
   },
   maxPath: {
-    defaultValue: 5000,
+    defaultValue: 250,
     isUnlimitedAtMax: true,
     format: (value, input) => (Number(value) >= Number(input.max) ? "Bez limitu" : formatSliderDistance(value)),
   },
@@ -1168,7 +1168,7 @@ const sliderConfig = {
     format: formatSliderDistance,
   },
   maxWater: {
-    defaultValue: 5000,
+    defaultValue: 150,
     isUnlimitedAtMax: true,
     format: (value, input) => (Number(value) >= Number(input.max) ? "Bez limitu" : formatSliderDistance(value)),
   },
@@ -1177,25 +1177,25 @@ const sliderConfig = {
     format: formatSliderDistance,
   },
   maxRiver: {
-    defaultValue: 5000,
+    defaultValue: 3000,
     isUnlimitedAtMax: true,
     format: (value, input) => (Number(value) >= Number(input.max) ? "Bez limitu" : formatSliderDistance(value)),
   },
   minSettlement: {
-    defaultValue: 0,
+    defaultValue: 600,
     format: formatSliderDistance,
   },
   maxSettlement: {
-    defaultValue: 5000,
+    defaultValue: 3000,
     isUnlimitedAtMax: true,
     format: (value, input) => (Number(value) >= Number(input.max) ? "Bez limitu" : formatSliderDistance(value)),
   },
   minBuilding: {
-    defaultValue: 0,
+    defaultValue: 150,
     format: formatSliderDistance,
   },
   maxBuilding: {
-    defaultValue: 5000,
+    defaultValue: 3000,
     isUnlimitedAtMax: true,
     format: (value, input) => (Number(value) >= Number(input.max) ? "Bez limitu" : formatSliderDistance(value)),
   },

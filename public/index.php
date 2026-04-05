@@ -38,7 +38,7 @@ declare(strict_types=1);
                         <div class="range-group">
                             <div class="range-label-row">
                                 <span class="filter-label">Plocha (m²)</span>
-                                <span class="range-value" id="areaRangeValue">1 000 m² - Bez limitu</span>
+                                <span class="range-value" id="areaRangeValue">500 m² - Bez limitu</span>
                             </div>
                             <div class="range-field range-field-dual">
                                 <div class="range-slider" id="areaRange">
@@ -49,7 +49,7 @@ declare(strict_types=1);
                                         min="0"
                                         max="50000"
                                         step="100"
-                                        value="1000"
+                                        value="500"
                                         aria-label="Minimální plocha"
                                     >
                                     <input
@@ -69,7 +69,7 @@ declare(strict_types=1);
                         <div class="range-group">
                             <div class="range-label-row">
                                 <span class="filter-label">Vzdálenost od silnice (m)</span>
-                                <span class="range-value" id="roadRangeValue">0 m - Bez limitu</span>
+                                <span class="range-value" id="roadRangeValue">0 m - 2 000 m</span>
                             </div>
                             <div class="range-field range-field-dual">
                                 <div class="range-slider" id="roadRange">
@@ -78,7 +78,7 @@ declare(strict_types=1);
                                         id="minRoad"
                                         name="minRoad"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
                                         value="0"
                                         aria-label="Minimální vzdálenost od silnice"
@@ -88,9 +88,9 @@ declare(strict_types=1);
                                         id="maxRoad"
                                         name="maxRoad"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
-                                        value="5000"
+                                        value="2000"
                                         aria-label="Maximální vzdálenost od silnice"
                                     >
                                 </div>
@@ -100,7 +100,7 @@ declare(strict_types=1);
                         <div class="range-group">
                             <div class="range-label-row">
                                 <span class="filter-label">Vzdálenost od cesty (m)</span>
-                                <span class="range-value" id="pathRangeValue">0 m - Bez limitu</span>
+                                <span class="range-value" id="pathRangeValue">0 m - 250 m</span>
                             </div>
                             <div class="range-field range-field-dual">
                                 <div class="range-slider" id="pathRange">
@@ -109,7 +109,7 @@ declare(strict_types=1);
                                         id="minPath"
                                         name="minPath"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
                                         value="0"
                                         aria-label="Minimální vzdálenost od cesty"
@@ -119,9 +119,9 @@ declare(strict_types=1);
                                         id="maxPath"
                                         name="maxPath"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
-                                        value="5000"
+                                        value="250"
                                         aria-label="Maximální vzdálenost od cesty"
                                     >
                                 </div>
@@ -131,7 +131,7 @@ declare(strict_types=1);
                         <div class="range-group">
                             <div class="range-label-row">
                                 <span class="filter-label">Vzdálenost od vody (m)</span>
-                                <span class="range-value" id="waterRangeValue">0 m - Bez limitu</span>
+                                <span class="range-value" id="waterRangeValue">0 m - 150 m</span>
                             </div>
                             <div class="range-field range-field-dual">
                                 <div class="range-slider" id="waterRange">
@@ -140,7 +140,7 @@ declare(strict_types=1);
                                         id="minWater"
                                         name="minWater"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
                                         value="0"
                                         aria-label="Minimální vzdálenost od vody"
@@ -150,9 +150,9 @@ declare(strict_types=1);
                                         id="maxWater"
                                         name="maxWater"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
-                                        value="5000"
+                                        value="150"
                                         aria-label="Maximální vzdálenost od vody"
                                     >
                                 </div>
@@ -171,7 +171,7 @@ declare(strict_types=1);
                                         id="minRiver"
                                         name="minRiver"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
                                         value="0"
                                         aria-label="Minimální vzdálenost od větší řeky"
@@ -181,9 +181,9 @@ declare(strict_types=1);
                                         id="maxRiver"
                                         name="maxRiver"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
-                                        value="5000"
+                                        value="3000"
                                         aria-label="Maximální vzdálenost od větší řeky"
                                     >
                                 </div>
@@ -193,7 +193,7 @@ declare(strict_types=1);
                         <div class="range-group">
                             <div class="range-label-row">
                                 <span class="filter-label">Vzdálenost od vesnice/města (m)</span>
-                                <span class="range-value" id="settlementRangeValue">0 m - Bez limitu</span>
+                                <span class="range-value" id="settlementRangeValue">600 m - Bez limitu</span>
                             </div>
                             <div class="range-field range-field-dual">
                                 <div class="range-slider" id="settlementRange">
@@ -202,9 +202,9 @@ declare(strict_types=1);
                                         id="minSettlement"
                                         name="minSettlement"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
-                                        value="0"
+                                        value="600"
                                         aria-label="Minimální vzdálenost od vesnice nebo města"
                                     >
                                     <input
@@ -212,9 +212,9 @@ declare(strict_types=1);
                                         id="maxSettlement"
                                         name="maxSettlement"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
-                                        value="5000"
+                                        value="3000"
                                         aria-label="Maximální vzdálenost od vesnice nebo města"
                                     >
                                 </div>
@@ -224,7 +224,7 @@ declare(strict_types=1);
                         <div class="range-group">
                             <div class="range-label-row">
                                 <span class="filter-label">Vzdálenost od nejbližší budovy (m)</span>
-                                <span class="range-value" id="buildingRangeValue">0 m - Bez limitu</span>
+                                <span class="range-value" id="buildingRangeValue">150 m - Bez limitu</span>
                             </div>
                             <div class="range-field range-field-dual">
                                 <div class="range-slider" id="buildingRange">
@@ -233,9 +233,9 @@ declare(strict_types=1);
                                         id="minBuilding"
                                         name="minBuilding"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
-                                        value="0"
+                                        value="150"
                                         aria-label="Minimální vzdálenost od budovy"
                                     >
                                     <input
@@ -243,9 +243,9 @@ declare(strict_types=1);
                                         id="maxBuilding"
                                         name="maxBuilding"
                                         min="0"
-                                        max="5000"
+                                        max="3000"
                                         step="10"
-                                        value="5000"
+                                        value="3000"
                                         aria-label="Maximální vzdálenost od budovy"
                                     >
                                 </div>
@@ -266,7 +266,7 @@ declare(strict_types=1);
                             <div class="range-group slope-filter-group">
                                 <div class="range-label-row">
                                     <span class="filter-label">Rovinatost</span>
-                                    <span class="range-value" id="slopeFilterValue">Strmá</span>
+                                    <span class="range-value" id="slopeFilterValue">Smíšený terén</span>
                                 </div>
                                 <div class="slope-range-end-labels" aria-hidden="true">
                                     <span>Úplně rovná</span>
@@ -281,7 +281,7 @@ declare(strict_types=1);
                                             min="0"
                                             max="5"
                                             step="1"
-                                            value="5"
+                                            value="3"
                                             aria-label="Filtr rovinatosti od úplně rovné po strmou"
                                             aria-valuemin="0"
                                             aria-valuemax="5"
