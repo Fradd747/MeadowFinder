@@ -4,6 +4,15 @@ declare(strict_types=1);
 ?><!DOCTYPE html>
 <html lang="cs">
 <head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-R3RDVL5T7B"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-R3RDVL5T7B');
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ochrana osobních údajů — Vyhledávač luk</title>
