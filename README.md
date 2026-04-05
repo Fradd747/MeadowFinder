@@ -137,7 +137,7 @@ Expected CSV column order:
 13. `nearest_water_m`
 14. `nearest_river_m`
 15. `nearest_settlement_m`
-16. `nearest_building_m`
+16. `nearest_building_m` (nearest non-excluded building; selected utility/harmless structure types are ignored during preprocessing)
 17. `centroid_lat`
 18. `centroid_lng`
 19. `min_lat`

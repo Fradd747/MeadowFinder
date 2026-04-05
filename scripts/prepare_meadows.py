@@ -44,7 +44,7 @@ ANALYSIS_CRS = CRS.from_epsg(5514)
 CZECH_REPUBLIC_CLIP_BOUNDS_WGS84 = (12.07, 48.53, 18.88, 51.07)  # west, south, east, north
 ELEVATION_CRS = CRS.from_epsg(3045)
 MEADOW_LANDUSE = "meadow"
-OSM_CACHE_VERSION = 3
+OSM_CACHE_VERSION = 4
 ROAD_VALUES = {
     "motorway",
     "trunk",
@@ -69,6 +69,17 @@ MAJOR_WATERWAY_VALUES = {"river", "canal"}
 MINOR_WATERWAY_VALUES = {"stream"}
 WATERWAY_VALUES = MAJOR_WATERWAY_VALUES | MINOR_WATERWAY_VALUES
 SETTLEMENT_VALUES = {"city", "town", "village", "hamlet"}
+EXCLUDED_BUILDING_VALUES = {
+    "bunker",
+    "hut",
+    "parking",
+    "ruins",
+    "service",
+    "shed",
+    "silo",
+    "tech_cab",
+    "water_tower",
+}
 DISTANCE_CATEGORIES = ("road", "path", "water", "river", "settlement", "building")
 SEGMENTED_INDEX_CATEGORIES = {"water", "river"}
 INDEX_SEGMENT_LENGTH_METERS = 1_000.0
@@ -1268,6 +1279,13 @@ def area_source_id(area: object) -> str:
     return f"{source_prefix}:{area.orig_id()}"
 
 
+def is_allowed_building(building_value: str | None) -> bool:
+    if not building_value:
+        return False
+    normalized_value = building_value.strip().lower()
+    return normalized_value != "no" and normalized_value not in EXCLUDED_BUILDING_VALUES
+
+
 def extract_osm_data(
     osm_path: Path, detailed_timings: bool = False
 ) -> tuple[gpd.GeoDataFrame, dict[str, gpd.GeoDataFrame]]:
@@ -1294,7 +1312,7 @@ def extract_osm_data(
             if obj.is_area():
                 landuse = tags.get("landuse")
                 building = tags.get("building")
-                if landuse == MEADOW_LANDUSE or (building and building != "no"):
+                if landuse == MEADOW_LANDUSE or is_allowed_building(building):
                     geometry_wkb = factory.create_multipolygon(obj)
                     if landuse == MEADOW_LANDUSE:
                         meadow_records.append(
@@ -1304,13 +1322,13 @@ def extract_osm_data(
                                 geometry_wkb,
                             )
                         )
-                    if building and building != "no":
+                    if is_allowed_building(building):
                         building_wkbs.append(geometry_wkb)
             elif obj.is_node():
                 if "place" in tags and tags["place"] in SETTLEMENT_VALUES:
                     settlement_wkbs.append(factory.create_point(obj))
                 building = tags.get("building")
-                if building and building != "no":
+                if is_allowed_building(building):
                     building_wkbs.append(factory.create_point(obj))
             elif obj.is_way():
                 if "highway" in tags:
