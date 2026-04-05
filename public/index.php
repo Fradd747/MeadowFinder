@@ -425,6 +425,65 @@ declare(strict_types=1);
         </main>
     </div>
 
+    <div id="welcomeModal" class="welcome-modal" hidden>
+        <div class="welcome-modal-backdrop" tabindex="-1"></div>
+        <div
+            class="welcome-modal-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="welcomeModalTitle"
+        >
+            <h1 id="welcomeModalTitle">Vítejte ve Vyhledávači luk</h1>
+            <p class="welcome-modal-lead">
+                Najděte louky v Česku podle polohy, velikosti, okolí a přibližné rovinnosti.
+                Začněte vyhledáním místa nebo posunem mapy.
+            </p>
+            <ul class="welcome-modal-tips">
+                <li>Filtrujte podle plochy, vzdálenosti od cest, vody a zástavby.</li>
+                <li>Přepínejte mezi běžnou, satelitní, katastrální a turistickou mapou.</li>
+                <li>Klikněte na louku pro detail a po přihlášení si ji uložte mezi oblíbené.</li>
+            </ul>
+            <p class="welcome-modal-note">
+                Data slouží jako orientační podklad. Vhodnost místa vždy ověřte podle skutečného
+                stavu, přístupu a pravidel v terénu.
+            </p>
+            <div class="welcome-modal-footer">
+                <label class="welcome-modal-toggle">
+                    <input type="checkbox" id="welcomeModalDontShow">
+                    <span>Příště nezobrazovat</span>
+                </label>
+                <button type="button" class="welcome-modal-start">Začít</button>
+            </div>
+            <div class="welcome-modal-credit">
+                <span>Vytvořil Jan Korbay</span>
+                <div class="welcome-modal-socials" aria-label="Sociální sítě autora">
+                    <a
+                        class="welcome-modal-social"
+                        href="https://www.facebook.com/jankorbay/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Facebook Jana Korbaye"
+                    >
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M13.5 21v-7h2.4l0.4-3h-2.8V9.2c0-0.9 0.2-1.5 1.5-1.5H16V5.1c-0.2 0-0.9-0.1-1.8-0.1-2.7 0-4.4 1.6-4.4 4.6V11H7v3h2.8v7h3.7Z"></path>
+                        </svg>
+                    </a>
+                    <a
+                        class="welcome-modal-social"
+                        href="https://www.linkedin.com/in/jan-korbay/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="LinkedIn Jana Korbaye"
+                    >
+                        <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <path d="M6.8 8.7A1.8 1.8 0 1 1 6.8 5a1.8 1.8 0 0 1 0 3.7Zm1.5 1.7H5.3V19h3V10.4Zm4.8 0h-2.9V19h3v-4.5c0-1.2 0.2-2.4 1.7-2.4s1.6 1.4 1.6 2.5V19h3v-5.5c0-2.7-1.4-4-3.5-4-1.5 0-2.2 0.8-2.6 1.4h0V10.4Z"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="loginModal" class="login-modal" hidden>
         <div class="login-modal-backdrop" tabindex="-1"></div>
         <div

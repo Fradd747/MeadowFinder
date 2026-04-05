@@ -401,6 +401,8 @@ const sidebarClose = document.getElementById("sidebarClose");
 const sidebarBackdrop = document.getElementById("sidebarBackdrop");
 const selection = document.getElementById("selection");
 const userPanel = document.getElementById("userPanel");
+const welcomeModal = document.getElementById("welcomeModal");
+const welcomeModalDontShow = document.getElementById("welcomeModalDontShow");
 const loginModal = document.getElementById("loginModal");
 const slopeFilterInput = document.getElementById("slopeFilter");
 const slopeFilterValueEl = document.getElementById("slopeFilterValue");
@@ -725,6 +727,51 @@ function closeLoginModal() {
   }
 }
 
+function shouldShowWelcomeModal() {
+  try {
+    return window.localStorage.getItem(WELCOME_MODAL_STORAGE_KEY) !== "hidden";
+  } catch {
+    return true;
+  }
+}
+
+function persistWelcomeModalPreference() {
+  try {
+    if (welcomeModalDontShow?.checked) {
+      window.localStorage.setItem(WELCOME_MODAL_STORAGE_KEY, "hidden");
+    } else {
+      window.localStorage.removeItem(WELCOME_MODAL_STORAGE_KEY);
+    }
+  } catch {
+    /* ignore storage failures */
+  }
+}
+
+function openWelcomeModal() {
+  if (!welcomeModal || !shouldShowWelcomeModal()) {
+    return;
+  }
+  if (welcomeModalDontShow) {
+    welcomeModalDontShow.checked = false;
+  }
+  welcomeModal.hidden = false;
+}
+
+function closeWelcomeModal() {
+  if (!welcomeModal) {
+    return;
+  }
+  persistWelcomeModalPreference();
+  welcomeModal.hidden = true;
+}
+
+function maybeOpenWelcomeModal() {
+  if (!welcomeModal || (loginModal && !loginModal.hidden)) {
+    return;
+  }
+  openWelcomeModal();
+}
+
 async function logout() {
   try {
     await fetch("api/auth_logout.php", { headers: { Accept: "application/json" } });
@@ -835,6 +882,22 @@ if (loginModal) {
   });
 }
 
+if (welcomeModal) {
+  welcomeModal.addEventListener("click", (event) => {
+    if (
+      event.target.classList.contains("welcome-modal-backdrop") ||
+      event.target.closest(".welcome-modal-start")
+    ) {
+      closeWelcomeModal();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !welcomeModal.hidden) {
+      closeWelcomeModal();
+    }
+  });
+}
+
 sidebarToggle?.addEventListener("click", () => {
   const isOpen = document.body.classList.contains("mobile-sidebar-open");
   setMobileSidebarOpen(!isOpen);
@@ -917,6 +980,7 @@ const formatSliderArea = (value) => `${Number(value).toLocaleString("cs-CZ")} mÂ
 const formatSliderDistance = (value) => `${Number(value).toLocaleString("cs-CZ")} m`;
 const DEFAULT_SLOPE_INDEX = 5;
 const FILTER_STORAGE_KEY = "meadowFinder.filters.v1";
+const WELCOME_MODAL_STORAGE_KEY = "meadowFinder.welcomeModal.v1";
 const MAP_CONTEXT_MENU_MARGIN = 12;
 const advancedFlatnessFieldConfig = {
   minLargestFlatPatchShare: {
@@ -2190,6 +2254,7 @@ if (!restorePersistedFilterState()) {
 }
 syncCadastralKnPointerCursor();
 readAuthErrorFromUrl();
+maybeOpenWelcomeModal();
 void (async () => {
   await loadAuthStatus();
   await refreshMeadows();
