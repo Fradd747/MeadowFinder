@@ -309,10 +309,10 @@ try {
                     AVG(m.centroid_lat) AS centroid_lat,
                     AVG(m.centroid_lng) AS centroid_lng,
                     COUNT(*) AS meadow_count,
-                    MAX(CASE WHEN f.meadow_id IS NOT NULL THEN 1 ELSE 0 END) AS has_favourite
+                    MAX(CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS has_favourite
                 FROM meadows m
                 LEFT JOIN user_favourite_meadows f
-                    ON f.meadow_id = m.id AND f.user_id = :favUser
+                    ON f.source_id = m.source_id AND f.user_id = :favUser
                 WHERE ' . buildWhereClause($where) . '
                 GROUP BY
                     FLOOR((m.centroid_lng - :clusterWest) / :lngStep),
@@ -393,11 +393,11 @@ try {
                     m.centroid_lng,
                     g.geom_geojson,
                     COUNT(*) OVER() AS total_count,
-                    (CASE WHEN f.meadow_id IS NOT NULL THEN 1 ELSE 0 END) AS is_favourite
+                    (CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS is_favourite
                 FROM meadows m
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
                 LEFT JOIN user_favourite_meadows f
-                    ON f.meadow_id = m.id AND f.user_id = :favUser
+                    ON f.source_id = m.source_id AND f.user_id = :favUser
                 WHERE ' . buildWhereClause($where) . '
                 ORDER BY m.area_m2 DESC
                 LIMIT :limit

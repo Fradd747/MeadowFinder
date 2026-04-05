@@ -116,7 +116,7 @@ Then either:
 - run `python scripts/prepare_meadows.py --import` to stage and merge data directly from Python
 - generate `--output-type sql` and run the resulting `.sql` files in order using phpMyAdmin or the SQL client
 
-The import flow now merges by `source_id` instead of truncating `meadows`, so existing `meadows.id` values stay stable for unchanged rows and `user_favourite_meadows` remains valid unless a meadow truly disappears from the dataset.
+The import flow now merges by `source_id` instead of truncating `meadows`, and favourites are also keyed by `source_id`, so reimports can recreate or reorder internal `meadows.id` values without breaking saved meadows unless a meadow truly disappears from the dataset.
 
 CSV output is still available, but it is now primarily a staging/export artifact for custom workflows rather than a direct final-table import format.
 

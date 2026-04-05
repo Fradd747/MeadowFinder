@@ -28,10 +28,10 @@ try {
 }
 
 if ($method === 'GET') {
-    $stmt = $pdo->prepare('SELECT meadow_id FROM user_favourite_meadows WHERE user_id = :uid ORDER BY meadow_id');
+    $stmt = $pdo->prepare('SELECT source_id FROM user_favourite_meadows WHERE user_id = :uid ORDER BY source_id');
     $stmt->execute([':uid' => $userId]);
-    $ids = array_map('intval', array_column($stmt->fetchAll(), 'meadow_id'));
-    echo json_encode(['ids' => $ids], JSON_THROW_ON_ERROR);
+    $sourceIds = array_map('strval', array_column($stmt->fetchAll(), 'source_id'));
+    echo json_encode(['source_ids' => $sourceIds], JSON_THROW_ON_ERROR);
     exit;
 }
 
@@ -46,46 +46,41 @@ if ($method === 'POST') {
         favouritesRespondError(400, 'Neplatné JSON tělo.');
     }
 
-    if (!isset($body['meadow_id']) || !is_numeric($body['meadow_id'])) {
-        favouritesRespondError(400, 'Chybí platné meadow_id.');
+    $sourceId = isset($body['source_id']) && is_scalar($body['source_id'])
+        ? trim((string) $body['source_id'])
+        : '';
+    if ($sourceId === '') {
+        favouritesRespondError(400, 'Chybí platné source_id.');
     }
 
-    $meadowId = (int) $body['meadow_id'];
-    if ($meadowId <= 0) {
-        favouritesRespondError(400, 'Neplatné meadow_id.');
-    }
-
-    $check = $pdo->prepare('SELECT 1 FROM meadows WHERE id = :id LIMIT 1');
-    $check->execute([':id' => $meadowId]);
+    $check = $pdo->prepare('SELECT 1 FROM meadows WHERE source_id = :sourceId LIMIT 1');
+    $check->execute([':sourceId' => $sourceId]);
     if (!$check->fetchColumn()) {
         favouritesRespondError(404, 'Louka neexistuje.');
     }
 
     $ins = $pdo->prepare(
-        'INSERT IGNORE INTO user_favourite_meadows (user_id, meadow_id) VALUES (:uid, :mid)'
+        'INSERT IGNORE INTO user_favourite_meadows (user_id, source_id) VALUES (:uid, :sourceId)'
     );
-    $ins->execute([':uid' => $userId, ':mid' => $meadowId]);
+    $ins->execute([':uid' => $userId, ':sourceId' => $sourceId]);
 
-    echo json_encode(['ok' => true, 'meadow_id' => $meadowId], JSON_THROW_ON_ERROR);
+    echo json_encode(['ok' => true, 'source_id' => $sourceId], JSON_THROW_ON_ERROR);
     exit;
 }
 
 if ($method === 'DELETE') {
-    $mid = $_GET['meadow_id'] ?? '';
-    if (!is_scalar($mid) || !is_numeric((string) $mid)) {
-        favouritesRespondError(400, 'Chybí platné meadow_id.');
+    $sourceId = $_GET['source_id'] ?? '';
+    if (!is_scalar($sourceId) || trim((string) $sourceId) === '') {
+        favouritesRespondError(400, 'Chybí platné source_id.');
     }
-    $meadowId = (int) $mid;
-    if ($meadowId <= 0) {
-        favouritesRespondError(400, 'Neplatné meadow_id.');
-    }
+    $sourceId = trim((string) $sourceId);
 
     $del = $pdo->prepare(
-        'DELETE FROM user_favourite_meadows WHERE user_id = :uid AND meadow_id = :mid'
+        'DELETE FROM user_favourite_meadows WHERE user_id = :uid AND source_id = :sourceId'
     );
-    $del->execute([':uid' => $userId, ':mid' => $meadowId]);
+    $del->execute([':uid' => $userId, ':sourceId' => $sourceId]);
 
-    echo json_encode(['ok' => true, 'meadow_id' => $meadowId], JSON_THROW_ON_ERROR);
+    echo json_encode(['ok' => true, 'source_id' => $sourceId], JSON_THROW_ON_ERROR);
     exit;
 }
 

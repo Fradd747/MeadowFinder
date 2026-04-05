@@ -62,10 +62,9 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS user_favourite_meadows (
     user_id BIGINT UNSIGNED NOT NULL,
-    meadow_id BIGINT UNSIGNED NOT NULL,
+    source_id VARCHAR(64) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, meadow_id),
-    KEY idx_fav_meadow (meadow_id),
-    CONSTRAINT fk_fav_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-    CONSTRAINT fk_fav_meadow FOREIGN KEY (meadow_id) REFERENCES meadows (id) ON DELETE CASCADE
+    PRIMARY KEY (user_id, source_id),
+    KEY idx_fav_source_id (source_id),
+    CONSTRAINT fk_fav_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
