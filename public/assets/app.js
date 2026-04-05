@@ -600,9 +600,9 @@ function meadowPolygonStyleFromFeature(feature) {
   const fav = isMeadowFavourite(feature.properties);
   if (fav) {
     return {
-      color: "#b71c1c",
+      color: "#c58a00",
       weight: 1.5,
-      fillColor: "#e53935",
+      fillColor: "#ffd54f",
       fillOpacity: 0.5,
     };
   }
@@ -2027,11 +2027,12 @@ function showSelection(properties) {
   const favouritePending = meadowId != null && pendingFavouriteMeadowIds.has(meadowId);
   const favouriteBlock =
     meadowId != null
-      ? `<p class="selection-favourite-row"><button type="button" class="selection-fav-btn" data-action="toggle-favourite" data-meadow-id="${meadowId}" data-is-favourite="${favourite ? "true" : "false"}"${favouritePending ? ' disabled aria-busy="true"' : ""}>${favourite ? "Odebrat z oblíbených" : "Přidat do oblíbených"}</button></p>`
+      ? `<button type="button" class="selection-fav-btn${favourite ? " is-favourite" : ""}" data-action="toggle-favourite" data-meadow-id="${meadowId}" data-is-favourite="${favourite ? "true" : "false"}" aria-label="${favourite ? "Odebrat z oblíbených" : "Přidat do oblíbených"}" title="${favourite ? "Odebrat z oblíbených" : "Přidat do oblíbených"}"${favouritePending ? ' disabled aria-busy="true"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.75l2.86 5.79 6.39.93-4.62 4.5 1.09 6.37L12 17.33 6.28 20.34l1.09-6.37-4.62-4.5 6.39-.93L12 2.75z"></path></svg><span class="sr-only">${favourite ? "Odebrat z oblíbených" : "Přidat do oblíbených"}</span></button>`
       : "";
 
   const flatness = classifyFlatness(properties);
   selection.innerHTML = `
+    ${favouriteBlock}
     <strong>${properties.source_id}</strong>
     <p>Rovinatost: ${flatness.label}</p>
     <p>Plocha: ${formatArea(properties.area_m2)}</p>
@@ -2046,7 +2047,6 @@ function showSelection(properties) {
     <p>Vzdálenost od větší řeky: ${formatDistance(properties.nearest_river_m)}</p>
     <p>Vzdálenost od vesnice/města: ${formatDistance(properties.nearest_settlement_m)}</p>
     <p>Vzdálenost od budovy: ${formatDistance(properties.nearest_building_m)}</p>
-    ${favouriteBlock}
     ${linksHtml}
   `;
   revealSelectionInSidebar();
