@@ -1505,12 +1505,10 @@ h6,
 
 
 .sidebar-legal {
-    margin: 1rem 0 0;
-    padding-top: 0.75rem;
-    border-top: 1px solid #e8efe9;
+    margin: 0.5rem 0 0;
     font-size: 0.7rem;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 0.5rem;
 }
 
@@ -1675,10 +1673,13 @@ body.legal-page {
         padding: 1.25rem;
     }
 
-    .welcome-modal-footer,
-    .welcome-modal-credit {
+    .welcome-modal-footer {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .welcome-modal-credit {
+        justify-content: flex-start;
     }
 
     .legal-main {
