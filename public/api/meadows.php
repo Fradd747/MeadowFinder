@@ -317,7 +317,6 @@ try {
                 GROUP BY
                     FLOOR((m.centroid_lng - :clusterWest) / :lngStep),
                     FLOOR((m.centroid_lat - :clusterSouth) / :latStep)
-                ORDER BY meadow_count DESC
             ';
         } else {
             $sql = '
@@ -330,7 +329,6 @@ try {
                 GROUP BY
                     FLOOR((m.centroid_lng - :clusterWest) / :lngStep),
                     FLOOR((m.centroid_lat - :clusterSouth) / :latStep)
-                ORDER BY meadow_count DESC
             ';
         }
 
@@ -392,7 +390,6 @@ try {
                     m.centroid_lat,
                     m.centroid_lng,
                     g.geom_geojson,
-                    COUNT(*) OVER() AS total_count,
                     (CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS is_favourite
                 FROM meadows m
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
@@ -425,8 +422,7 @@ try {
                     m.nearest_building_m,
                     m.centroid_lat,
                     m.centroid_lng,
-                    g.geom_geojson,
-                    COUNT(*) OVER() AS total_count
+                    g.geom_geojson
                 FROM meadows m
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
                 WHERE ' . buildWhereClause($where) . '
@@ -445,7 +441,6 @@ try {
         $statement->bindValue(':limit', POLYGON_RESULT_LIMIT, PDO::PARAM_INT);
         $statement->execute();
         $rows = $statement->fetchAll();
-        $totalCount = count($rows) > 0 ? (int) $rows[0]['total_count'] : 0;
 
         foreach ($rows as $row) {
             try {
@@ -494,8 +489,6 @@ try {
             'meta' => [
                 'mode' => $mode,
                 'count' => count($features),
-                'total_count' => $totalCount,
-                'truncated' => $mode === 'polygons' && $totalCount > POLYGON_RESULT_LIMIT,
                 'bbox' => [$west, $south, $east, $north],
             ],
         ],

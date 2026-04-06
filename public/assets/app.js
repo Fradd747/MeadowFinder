@@ -230,15 +230,6 @@ const BasemapControl = L.Control.extend({
       return button;
     });
 
-    const statsBox = L.DomUtil.create("div", "basemap-stats-box", root);
-    const statsDl = L.DomUtil.create("dl", "stats", statsBox);
-    const statsRow = L.DomUtil.create("div", "", statsDl);
-    const statsDt = L.DomUtil.create("dt", "", statsRow);
-    statsDt.textContent = "Zobrazené louky";
-    const statsDd = L.DomUtil.create("dd", "", statsRow);
-    statsDd.id = "countText";
-    statsDd.textContent = "0";
-
     L.DomEvent.disableClickPropagation(root);
     L.DomEvent.disableScrollPropagation(root);
     updateBasemapButtons();
@@ -392,7 +383,6 @@ const filtersForm = document.getElementById("filters");
 const filtersPanel = document.querySelector(".filters-panel");
 const filtersPanelBody = filtersPanel?.querySelector(".filters-panel-body");
 const resetButton = document.getElementById("resetFilters");
-const countText = document.getElementById("countText");
 const searchToggle = document.getElementById("searchToggle");
 const sidebar = document.getElementById("sidebarDrawer");
 const sidebarToggle = document.getElementById("sidebarToggle");
@@ -2169,11 +2159,6 @@ async function refreshMeadows() {
   try {
     const featureCollection = await loadMeadows();
     redrawMeadows(featureCollection);
-    const totalCount = featureCollection.meta?.total_count ?? featureCollection.meta?.count ?? featureCollection.features.length;
-    const visibleCount = featureCollection.meta?.count ?? featureCollection.features.length;
-    countText.textContent = featureCollection.meta?.truncated
-      ? `${formatCount(visibleCount)} / ${formatCount(totalCount)}`
-      : formatCount(totalCount);
   } catch (error) {
     if (error.name === "AbortError") {
       return;
