@@ -48,6 +48,26 @@ CREATE TABLE IF NOT EXISTS meadow_geometries (
     CONSTRAINT fk_meadow_geometries_meadow FOREIGN KEY (meadow_id) REFERENCES meadows (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS meadow_cluster_memberships (
+    meadow_id BIGINT UNSIGNED NOT NULL,
+    cluster_tier TINYINT UNSIGNED NOT NULL,
+    bucket_x SMALLINT UNSIGNED NOT NULL,
+    bucket_y SMALLINT UNSIGNED NOT NULL,
+    PRIMARY KEY (meadow_id, cluster_tier),
+    KEY idx_cluster_memberships_tier_bucket (cluster_tier, bucket_x, bucket_y, meadow_id),
+    CONSTRAINT fk_meadow_cluster_memberships_meadow FOREIGN KEY (meadow_id) REFERENCES meadows (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS meadow_cluster_bucket_points (
+    cluster_tier TINYINT UNSIGNED NOT NULL,
+    bucket_x SMALLINT UNSIGNED NOT NULL,
+    bucket_y SMALLINT UNSIGNED NOT NULL,
+    representative_lat DOUBLE NOT NULL,
+    representative_lng DOUBLE NOT NULL,
+    meadow_count INT UNSIGNED NOT NULL,
+    PRIMARY KEY (cluster_tier, bucket_x, bucket_y)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     google_sub VARCHAR(255) NOT NULL,

@@ -105,6 +105,8 @@ ZIP_SUFFIXES = (".tif", ".tiff")
 SQL_INSERT_BATCH_SIZE = 500
 MEADOWS_EXPORT_TABLE = "meadows"
 MEADOWS_GEOMETRY_EXPORT_TABLE = "meadow_geometries"
+MEADOWS_CLUSTER_EXPORT_TABLE = "meadow_cluster_memberships"
+MEADOWS_CLUSTER_BUCKET_POINTS_EXPORT_TABLE = "meadow_cluster_bucket_points"
 
 
 class SlidingWindowRateLimiter:
@@ -184,6 +186,26 @@ class TerrainMetrics:
     largest_flat_patch_share: np.ndarray
     flat_area_share: np.ndarray
     terrain_roughness_p80_m: np.ndarray
+
+
+@dataclass(frozen=True)
+class ClusterTier:
+    tier_id: int
+    columns: int
+    rows: int
+
+
+CLUSTER_TIERS: tuple[ClusterTier, ...] = (
+    ClusterTier(tier_id=5, columns=8, rows=8),
+    ClusterTier(tier_id=6, columns=10, rows=10),
+    ClusterTier(tier_id=7, columns=12, rows=12),
+    ClusterTier(tier_id=8, columns=16, rows=16),
+    ClusterTier(tier_id=9, columns=24, rows=24),
+    ClusterTier(tier_id=10, columns=36, rows=36),
+    ClusterTier(tier_id=11, columns=72, rows=72),
+    ClusterTier(tier_id=12, columns=128, rows=128),
+    ClusterTier(tier_id=13, columns=192, rows=192),
+)
 
 
 @dataclass(frozen=True)
@@ -1902,6 +1924,8 @@ def write_metadata(
         outputs["sql"] = names[0] if len(names) == 1 else names
     if imported_to_db:
         outputs["database_table"] = config.table
+        outputs["database_cluster_table"] = cluster_table_name(config.table)
+        outputs["database_cluster_bucket_points_table"] = cluster_bucket_points_table_name(config.table)
 
     metadata = {
         "record_count": int(len(export)),
@@ -2038,6 +2062,18 @@ def geometry_table_name(base_table: str) -> str:
     return f"{base_table}_geometries"
 
 
+def cluster_table_name(base_table: str) -> str:
+    if base_table == MEADOWS_EXPORT_TABLE:
+        return MEADOWS_CLUSTER_EXPORT_TABLE
+    return f"{base_table}_cluster_memberships"
+
+
+def cluster_bucket_points_table_name(base_table: str) -> str:
+    if base_table == MEADOWS_EXPORT_TABLE:
+        return MEADOWS_CLUSTER_BUCKET_POINTS_EXPORT_TABLE
+    return f"{base_table}_cluster_bucket_points"
+
+
 def stage_table_name(base_table: str) -> str:
     return f"{base_table}_import_stage"
 
@@ -2083,6 +2119,106 @@ def meadow_bbox_polygon_sql(source_alias: str) -> str:
     return f"ST_GeomFromText({source_alias}.bbox_wkt)"
 
 
+def cluster_bucket_sql(source_alias: str, column: str, start: float, end: float, buckets: int) -> str:
+    step = (end - start) / buckets
+    return (
+        "CAST("
+        f"LEAST({buckets - 1}, "
+        f"GREATEST(0, FLOOR(({source_alias}.{column} - {start:.12f}) / {step:.12f}))) "
+        "AS UNSIGNED)"
+    )
+
+
+def meadow_cluster_table_sql(base_table: str) -> str:
+    cluster_ident = quoted_identifier(cluster_table_name(base_table))
+    table_ident = quoted_identifier(base_table)
+    constraint_name = quoted_identifier(f"fk_{cluster_table_name(base_table)}_meadow")
+    return f"""CREATE TABLE IF NOT EXISTS {cluster_ident} (
+    meadow_id BIGINT UNSIGNED NOT NULL,
+    cluster_tier TINYINT UNSIGNED NOT NULL,
+    bucket_x SMALLINT UNSIGNED NOT NULL,
+    bucket_y SMALLINT UNSIGNED NOT NULL,
+    PRIMARY KEY (meadow_id, cluster_tier),
+    KEY idx_cluster_memberships_tier_bucket (cluster_tier, bucket_x, bucket_y, meadow_id),
+    CONSTRAINT {constraint_name} FOREIGN KEY (meadow_id) REFERENCES {table_ident} (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+"""
+
+
+def meadow_cluster_bucket_points_table_sql(base_table: str) -> str:
+    bucket_points_ident = quoted_identifier(cluster_bucket_points_table_name(base_table))
+    return f"""CREATE TABLE IF NOT EXISTS {bucket_points_ident} (
+    cluster_tier TINYINT UNSIGNED NOT NULL,
+    bucket_x SMALLINT UNSIGNED NOT NULL,
+    bucket_y SMALLINT UNSIGNED NOT NULL,
+    representative_lat DOUBLE NOT NULL,
+    representative_lng DOUBLE NOT NULL,
+    meadow_count INT UNSIGNED NOT NULL,
+    PRIMARY KEY (cluster_tier, bucket_x, bucket_y)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+"""
+
+
+def meadow_cluster_refresh_sql(base_table: str) -> str:
+    cluster_ident = quoted_identifier(cluster_table_name(base_table))
+    table_ident = quoted_identifier(base_table)
+    west, south, east, north = CZECH_REPUBLIC_CLIP_BOUNDS_WGS84
+    insert_statements = [
+        f"""INSERT INTO {cluster_ident} (meadow_id, cluster_tier, bucket_x, bucket_y)
+SELECT
+    m.id,
+    {tier.tier_id},
+    {cluster_bucket_sql("m", "centroid_lng", west, east, tier.columns)},
+    {cluster_bucket_sql("m", "centroid_lat", south, north, tier.rows)}
+FROM {table_ident} m"""
+        for tier in CLUSTER_TIERS
+    ]
+    return ";\n\n".join(
+        statement.rstrip(";")
+        for statement in [
+            meadow_cluster_table_sql(base_table).strip(),
+            f"DELETE FROM {cluster_ident}",
+            *insert_statements,
+        ]
+    ) + ";\n"
+
+
+def meadow_cluster_bucket_points_refresh_sql(base_table: str) -> str:
+    cluster_ident = quoted_identifier(cluster_table_name(base_table))
+    bucket_points_ident = quoted_identifier(cluster_bucket_points_table_name(base_table))
+    table_ident = quoted_identifier(base_table)
+    insert_statements = [
+        f"""INSERT INTO {bucket_points_ident} (
+    cluster_tier,
+    bucket_x,
+    bucket_y,
+    representative_lat,
+    representative_lng,
+    meadow_count
+)
+SELECT
+    {tier.tier_id},
+    cm.bucket_x,
+    cm.bucket_y,
+    AVG(m.centroid_lat) AS representative_lat,
+    AVG(m.centroid_lng) AS representative_lng,
+    COUNT(*) AS meadow_count
+FROM {cluster_ident} cm
+INNER JOIN {table_ident} m ON m.id = cm.meadow_id
+WHERE cm.cluster_tier = {tier.tier_id}
+GROUP BY cm.bucket_x, cm.bucket_y"""
+        for tier in CLUSTER_TIERS
+    ]
+    return ";\n\n".join(
+        statement.rstrip(";")
+        for statement in [
+            meadow_cluster_bucket_points_table_sql(base_table).strip(),
+            f"DELETE FROM {bucket_points_ident}",
+            *insert_statements,
+        ]
+    ) + ";\n"
+
+
 def meadow_stage_merge_sql(base_table: str, columns: Sequence[str]) -> str:
     stage_table = stage_table_name(base_table)
     geometry_table = geometry_table_name(base_table)
@@ -2120,6 +2256,10 @@ INNER JOIN {table_ident} m ON m.source_id = s.source_id
 ON DUPLICATE KEY UPDATE
     geom_geojson = VALUES(geom_geojson),
     updated_at = CURRENT_TIMESTAMP;
+
+{meadow_cluster_refresh_sql(base_table).strip()}
+
+{meadow_cluster_bucket_points_refresh_sql(base_table).strip()}
 
 DROP TABLE IF EXISTS {stage_ident};
 """

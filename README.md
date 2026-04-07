@@ -103,11 +103,11 @@ Outputs are written into `data/processed/`:
 
 When `--skip-preview` is used, the script skips `meadows_preview.geojson` and records only the files it actually wrote in `build_metadata.json`.
 
-When `--import` is used, the script stages rows in a temporary import table, merges them into `meadows` by `source_id`, refreshes `meadow_geometries`, still writes the preview and metadata files unless `--skip-preview` is set, and skips file export (`--output-type` is not required).
+When `--import` is used, the script stages rows in a temporary import table, merges them into `meadows` by `source_id`, refreshes `meadow_geometries`, `meadow_cluster_memberships`, and `meadow_cluster_bucket_points`, still writes the preview and metadata files unless `--skip-preview` is set, and skips file export (`--output-type` is not required).
 
 ## 4. Create the Database
 
-Create the tables from `database/schema.sql` (`meadows`, `meadow_geometries`, `users`, `user_favourite_meadows`).
+Create the tables from `database/schema.sql` (`meadows`, `meadow_geometries`, `meadow_cluster_memberships`, `meadow_cluster_bucket_points`, `users`, `user_favourite_meadows`).
 
 Use a recent MariaDB/MySQL release with InnoDB spatial index support for `POLYGON` columns.
 
@@ -200,5 +200,8 @@ If your host uses a subdirectory for the app, keep the `api/` and `assets/` path
 - Flatness is derived from local DEM relief in a small moving window. The default preprocessing marks pixels as flat when local relief is at most `1.5 m`, then exports both connected-flat-patch and overall flat-area metrics.
 - Meadow candidates come from OpenStreetMap polygons tagged `landuse=meadow`, so output quality depends on local OSM coverage and tagging consistency.
 - The hosted app does not compute spatial distances live. All heavy GIS work happens locally in Python before upload.
-- The API now uses a spatial bbox prefilter on precomputed meadow envelopes, then applies the numeric filters in SQL.
-- Display geometry is stored in `meadow_geometries`, so viewport counts and cluster queries can stay on the slimmer `meadows` table.
+- Polygon mode uses a spatial bbox prefilter on precomputed meadow envelopes, then applies the numeric filters in SQL.
+- Display geometry is stored in `meadow_geometries`, so polygon queries can stay off the main `meadows` rows.
+- Cluster mode uses a fixed global grid stored in `meadow_cluster_memberships`, rebuilt during import from meadow centroids.
+- Representative points for unfiltered cluster buckets are stored in `meadow_cluster_bucket_points`, so stable cluster markers sit over meadow groups instead of geometric bucket centers.
+- Cluster viewport filtering now uses meadow centroids inside the current bbox. With active filters, the API computes representative points from the filtered rows, so filtered cluster positions may still shift slightly as the filtered meadow subset changes.

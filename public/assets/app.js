@@ -1678,10 +1678,6 @@ function currentParams() {
     zoom: String(Math.round(map.getZoom())),
   });
 
-  if (isPhoneLayoutViewport()) {
-    params.set("compactClusters", "1");
-  }
-
   [
     ["minArea", rangeSliderValue("area", "min")],
     ["maxArea", rangeSliderValue("area", "max")],

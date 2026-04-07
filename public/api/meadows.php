@@ -14,6 +14,16 @@ const CZECH_REPUBLIC_WEST = 12.07;
 const CZECH_REPUBLIC_SOUTH = 48.53;
 const CZECH_REPUBLIC_EAST = 18.88;
 const CZECH_REPUBLIC_NORTH = 51.07;
+const SMALL_CLUSTER_NEIGHBOUR_MERGE_PX = 400.0;
+
+/**
+ * Pad cluster centroid bbox so meadows just off-screen still count toward the same bucket (see clusterWhere).
+ * Fraction is applied to max(lngSpan, latSpan) so portrait/narrow viewports still get enough east–west buffer
+ * (per-axis % alone would starve longitude when latSpan ≫ lngSpan).
+ */
+const CLUSTER_BBOX_INFLATE_SPAN_FRACTION = 0.2;
+const CLUSTER_BBOX_INFLATE_MIN_PAD_LAT_DEG = 0.0045;
+const CLUSTER_BBOX_INFLATE_MIN_PAD_LNG_DEG = 0.007;
 
 function respondWithError(int $statusCode, string $message): never
 {
@@ -104,6 +114,35 @@ function readBbox(): array
     return [$west, $south, $east, $north];
 }
 
+/**
+ * @return array{0: float, 1: float, 2: float, 3: float}
+ */
+function inflateBboxForClusters(float $west, float $south, float $east, float $north): array
+{
+    $lngSpan = $east - $west;
+    $latSpan = $north - $south;
+    $refSpan = max($lngSpan, $latSpan);
+    $fracPad = $refSpan * CLUSTER_BBOX_INFLATE_SPAN_FRACTION;
+    $padLng = max($fracPad, CLUSTER_BBOX_INFLATE_MIN_PAD_LNG_DEG);
+    $padLat = max($fracPad, CLUSTER_BBOX_INFLATE_MIN_PAD_LAT_DEG);
+
+    $w = $west - $padLng;
+    $s = $south - $padLat;
+    $e = $east + $padLng;
+    $n = $north + $padLat;
+
+    $w = max($w, CZECH_REPUBLIC_WEST);
+    $s = max($s, CZECH_REPUBLIC_SOUTH);
+    $e = min($e, CZECH_REPUBLIC_EAST);
+    $n = min($n, CZECH_REPUBLIC_NORTH);
+
+    if ($w >= $e || $s >= $n) {
+        return [$west, $south, $east, $north];
+    }
+
+    return [$w, $s, $e, $n];
+}
+
 function readMode(): string
 {
     $mode = readStringParam('mode', 'clusters');
@@ -112,20 +151,6 @@ function readMode(): string
     }
 
     return $mode;
-}
-
-function readCompactClusters(): bool
-{
-    if (!isset($_GET['compactClusters'])) {
-        return false;
-    }
-
-    $value = $_GET['compactClusters'];
-    if (!is_scalar($value)) {
-        respondWithError(400, 'Neplatný parametr compactClusters.');
-    }
-
-    return (string) $value === '1';
 }
 
 function buildWhereClause(array $where): string
@@ -144,45 +169,177 @@ function buildBboxPolygonWkt(float $west, float $south, float $east, float $nort
     );
 }
 
-function clusterSteps(array $bbox, int $zoom, bool $compactClusters): array
+function clusterTierForRequest(int $zoom): int
 {
-    [$west, $south, $east, $north] = $bbox;
-
-    if ($zoom <= 6) {
-        $columns = 8.0;
-        $rows = 8.0;
-    } elseif ($zoom === 7) {
-        $columns = 8.0;
-        $rows = 8.0;
+    // Keep this mapping in sync with CLUSTER_TIERS tier_id values in prepare_meadows.py.
+    if ($zoom <= 7) {
+        return 5;
     } elseif ($zoom === 8) {
-        $columns = 10.0;
-        $rows = 10.0;
+        return 6;
     } elseif ($zoom === 9) {
-        $columns = 14.0;
-        $rows = 14.0;
+        return 8;
     } elseif ($zoom === 10) {
-        $columns = 14.0;
-        $rows = 14.0;
+        return 9;
     } elseif ($zoom === 11) {
-        $columns = 12.0;
-        $rows = 12.0;
+        return 10;
     } elseif ($zoom === 12) {
-        $columns = 16.0;
-        $rows = 16.0;
-    } else {
-        $columns = 80.0;
-        $rows = 60.0;
+        return 11;
     }
 
-    if ($compactClusters) {
-        $columns = $columns / 2.0;
-        $rows = $rows / 2.0;
+    return 13;
+}
+
+function normalizeClusterRows(array $rows, bool $includeFavourite): array
+{
+    $clusters = [];
+    foreach ($rows as $row) {
+        if (
+            !isset($row['bucket_x'], $row['bucket_y'], $row['representative_lat'], $row['representative_lng'], $row['meadow_count']) ||
+            !is_numeric((string) $row['bucket_x']) ||
+            !is_numeric((string) $row['bucket_y']) ||
+            !is_numeric((string) $row['representative_lat']) ||
+            !is_numeric((string) $row['representative_lng']) ||
+            !is_numeric((string) $row['meadow_count'])
+        ) {
+            continue;
+        }
+
+        $clusters[] = [
+            'bucket_x' => (int) $row['bucket_x'],
+            'bucket_y' => (int) $row['bucket_y'],
+            'representative_lat' => (float) $row['representative_lat'],
+            'representative_lng' => (float) $row['representative_lng'],
+            'meadow_count' => (int) $row['meadow_count'],
+            'has_favourite' => $includeFavourite && ((int) ($row['has_favourite'] ?? 0)) === 1,
+        ];
     }
 
-    $lngStep = max(($east - $west) / $columns, 0.01);
-    $latStep = max(($north - $south) / $rows, 0.01);
+    return $clusters;
+}
 
-    return [$lngStep, $latStep];
+function clusterBucketKey(int $bucketX, int $bucketY): string
+{
+    return $bucketX . ':' . $bucketY;
+}
+
+function webMercatorMetersPerPixel(float $latitude, int $zoom): float
+{
+    $cosLatitude = max(0.01, cos(deg2rad($latitude)));
+    return 156543.03392 * $cosLatitude / (2 ** max(0, $zoom));
+}
+
+function clusterDistanceMeters(float $latA, float $lngA, float $latB, float $lngB): float
+{
+    $earthRadiusMeters = 6371008.8;
+    $lat1 = deg2rad($latA);
+    $lat2 = deg2rad($latB);
+    $deltaLat = $lat2 - $lat1;
+    $deltaLng = deg2rad($lngB - $lngA);
+    $sinLat = sin($deltaLat / 2.0);
+    $sinLng = sin($deltaLng / 2.0);
+    $a = ($sinLat * $sinLat) + cos($lat1) * cos($lat2) * ($sinLng * $sinLng);
+    return 2.0 * $earthRadiusMeters * asin(min(1.0, sqrt($a)));
+}
+
+function smallClusterMergeDistanceMeters(int $zoom, float $latitude): float
+{
+    return max(120.0, min(900.0, SMALL_CLUSTER_NEIGHBOUR_MERGE_PX * webMercatorMetersPerPixel($latitude, $zoom)));
+}
+
+function mergeSmallNeighbourClusters(array $clusters, int $zoom): array
+{
+    if (count($clusters) < 2) {
+        return $clusters;
+    }
+
+    $indexByBucket = [];
+    foreach ($clusters as $index => $cluster) {
+        $indexByBucket[clusterBucketKey($cluster['bucket_x'], $cluster['bucket_y'])] = $index;
+    }
+
+    $parents = array_keys($clusters);
+    $find = static function (int $index) use (&$parents, &$find): int {
+        if ($parents[$index] !== $index) {
+            $parents[$index] = $find($parents[$index]);
+        }
+
+        return $parents[$index];
+    };
+    $union = static function (int $left, int $right) use (&$parents, $find): void {
+        $leftRoot = $find($left);
+        $rightRoot = $find($right);
+        if ($leftRoot !== $rightRoot) {
+            $parents[$rightRoot] = $leftRoot;
+        }
+    };
+
+    foreach ($clusters as $index => $cluster) {
+        for ($dx = -1; $dx <= 1; $dx++) {
+            for ($dy = -1; $dy <= 1; $dy++) {
+                if ($dx === 0 && $dy === 0) {
+                    continue;
+                }
+
+                $neighborIndex = $indexByBucket[
+                    clusterBucketKey($cluster['bucket_x'] + $dx, $cluster['bucket_y'] + $dy)
+                ] ?? null;
+                if ($neighborIndex === null || $neighborIndex <= $index) {
+                    continue;
+                }
+
+                $neighbor = $clusters[$neighborIndex];
+                $avgLatitude = ($cluster['representative_lat'] + $neighbor['representative_lat']) / 2.0;
+                $distanceMeters = clusterDistanceMeters(
+                    $cluster['representative_lat'],
+                    $cluster['representative_lng'],
+                    $neighbor['representative_lat'],
+                    $neighbor['representative_lng']
+                );
+                if ($distanceMeters <= smallClusterMergeDistanceMeters($zoom, $avgLatitude)) {
+                    $union($index, $neighborIndex);
+                }
+            }
+        }
+    }
+
+    $components = [];
+    foreach (array_keys($clusters) as $index) {
+        $root = $find($index);
+        $components[$root][] = $index;
+    }
+
+    $mergedClusters = [];
+    foreach ($components as $indices) {
+        if (count($indices) === 1) {
+            $mergedClusters[] = $clusters[$indices[0]];
+            continue;
+        }
+
+        $totalCount = 0;
+        $weightedLat = 0.0;
+        $weightedLng = 0.0;
+        $hasFavourite = false;
+        foreach ($indices as $index) {
+            $cluster = $clusters[$index];
+            $count = $cluster['meadow_count'];
+            $totalCount += $count;
+            $weightedLat += $cluster['representative_lat'] * $count;
+            $weightedLng += $cluster['representative_lng'] * $count;
+            $hasFavourite = $hasFavourite || $cluster['has_favourite'];
+        }
+
+        $firstCluster = $clusters[$indices[0]];
+        $mergedClusters[] = [
+            'bucket_x' => $firstCluster['bucket_x'],
+            'bucket_y' => $firstCluster['bucket_y'],
+            'representative_lat' => $weightedLat / $totalCount,
+            'representative_lng' => $weightedLng / $totalCount,
+            'meadow_count' => $totalCount,
+            'has_favourite' => $hasFavourite,
+        ];
+    }
+
+    return $mergedClusters;
 }
 
 try {
@@ -190,8 +347,8 @@ try {
     $pdo = meadowFinderPdo();
 
     [$west, $south, $east, $north] = readBbox();
+    [$clusterWest, $clusterSouth, $clusterEast, $clusterNorth] = inflateBboxForClusters($west, $south, $east, $north);
     $mode = readMode();
-    $compactClusters = readCompactClusters();
     $zoom = readIntParam('zoom', 7);
     $minArea = readFloatParam('minArea');
     $maxArea = readFloatParam('maxArea');
@@ -287,49 +444,118 @@ try {
         $params[':maxTerrainRoughnessP80M'] = $maxTerrainRoughnessP80M;
     }
 
+    $hasClusterFilters = count($params) > 1;
+    $polygonWhere = $where;
+    $clusterWhere = array_merge(
+        [
+            'm.centroid_lng BETWEEN :clusterWest AND :clusterEast',
+            'm.centroid_lat BETWEEN :clusterSouth AND :clusterNorth',
+        ],
+        array_slice($where, 1)
+    );
+
     $sessionUserId = meadowFinderSessionUserId();
     session_write_close();
 
     $features = [];
-    $totalCount = 0;
 
     if ($mode === 'clusters') {
-        [$lngStep, $latStep] = clusterSteps([$west, $south, $east, $north], $zoom, $compactClusters);
-        $clusterParams = $params + [
-            ':clusterWest' => $west,
-            ':clusterSouth' => $south,
-            ':lngStep' => $lngStep,
-            ':latStep' => $latStep,
+        $clusterTier = clusterTierForRequest($zoom);
+        $clusterParams = array_filter(
+            $params,
+            static fn (string $key): bool => $key !== ':bboxPolygon',
+            ARRAY_FILTER_USE_KEY
+        ) + [
+            ':clusterTier' => $clusterTier,
+            ':clusterWest' => $clusterWest,
+            ':clusterSouth' => $clusterSouth,
+            ':clusterEast' => $clusterEast,
+            ':clusterNorth' => $clusterNorth,
         ];
 
         if ($sessionUserId !== null) {
             $clusterParams[':favUser'] = $sessionUserId;
-            $sql = '
-                SELECT
-                    AVG(m.centroid_lat) AS centroid_lat,
-                    AVG(m.centroid_lng) AS centroid_lng,
-                    COUNT(*) AS meadow_count,
-                    MAX(CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS has_favourite
-                FROM meadows m
-                LEFT JOIN user_favourite_meadows f
-                    ON f.source_id = m.source_id AND f.user_id = :favUser
-                WHERE ' . buildWhereClause($where) . '
-                GROUP BY
-                    FLOOR((m.centroid_lng - :clusterWest) / :lngStep),
-                    FLOOR((m.centroid_lat - :clusterSouth) / :latStep)
-            ';
+            if ($hasClusterFilters) {
+                $sql = '
+                    SELECT
+                        cm.bucket_x,
+                        cm.bucket_y,
+                        AVG(m.centroid_lat) AS representative_lat,
+                        AVG(m.centroid_lng) AS representative_lng,
+                        COUNT(*) AS meadow_count,
+                        MAX(CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS has_favourite
+                    FROM meadows m
+                    INNER JOIN meadow_cluster_memberships cm
+                        ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
+                    LEFT JOIN user_favourite_meadows f
+                        ON f.source_id = m.source_id AND f.user_id = :favUser
+                    WHERE ' . buildWhereClause($clusterWhere) . '
+                    GROUP BY cm.bucket_x, cm.bucket_y
+                ';
+            } else {
+                $sql = '
+                    SELECT
+                        cm.bucket_x,
+                        cm.bucket_y,
+                        bp.representative_lat,
+                        bp.representative_lng,
+                        COUNT(*) AS meadow_count,
+                        MAX(CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS has_favourite
+                    FROM meadows m
+                    INNER JOIN meadow_cluster_memberships cm
+                        ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
+                    INNER JOIN meadow_cluster_bucket_points bp
+                        ON bp.cluster_tier = cm.cluster_tier
+                        AND bp.bucket_x = cm.bucket_x
+                        AND bp.bucket_y = cm.bucket_y
+                    LEFT JOIN user_favourite_meadows f
+                        ON f.source_id = m.source_id AND f.user_id = :favUser
+                    WHERE ' . buildWhereClause($clusterWhere) . '
+                    GROUP BY
+                        cm.bucket_x,
+                        cm.bucket_y,
+                        bp.representative_lat,
+                        bp.representative_lng
+                ';
+            }
         } else {
-            $sql = '
-                SELECT
-                    AVG(m.centroid_lat) AS centroid_lat,
-                    AVG(m.centroid_lng) AS centroid_lng,
-                    COUNT(*) AS meadow_count
-                FROM meadows m
-                WHERE ' . buildWhereClause($where) . '
-                GROUP BY
-                    FLOOR((m.centroid_lng - :clusterWest) / :lngStep),
-                    FLOOR((m.centroid_lat - :clusterSouth) / :latStep)
-            ';
+            if ($hasClusterFilters) {
+                $sql = '
+                    SELECT
+                        cm.bucket_x,
+                        cm.bucket_y,
+                        AVG(m.centroid_lat) AS representative_lat,
+                        AVG(m.centroid_lng) AS representative_lng,
+                        COUNT(*) AS meadow_count
+                    FROM meadows m
+                    INNER JOIN meadow_cluster_memberships cm
+                        ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
+                    WHERE ' . buildWhereClause($clusterWhere) . '
+                    GROUP BY cm.bucket_x, cm.bucket_y
+                ';
+            } else {
+                $sql = '
+                    SELECT
+                        cm.bucket_x,
+                        cm.bucket_y,
+                        bp.representative_lat,
+                        bp.representative_lng,
+                        COUNT(*) AS meadow_count
+                    FROM meadows m
+                    INNER JOIN meadow_cluster_memberships cm
+                        ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
+                    INNER JOIN meadow_cluster_bucket_points bp
+                        ON bp.cluster_tier = cm.cluster_tier
+                        AND bp.bucket_x = cm.bucket_x
+                        AND bp.bucket_y = cm.bucket_y
+                    WHERE ' . buildWhereClause($clusterWhere) . '
+                    GROUP BY
+                        cm.bucket_x,
+                        cm.bucket_y,
+                        bp.representative_lat,
+                        bp.representative_lng
+                ';
+            }
         }
 
         $statement = $pdo->prepare($sql);
@@ -337,23 +563,20 @@ try {
             $statement->bindValue($key, $value);
         }
         $statement->execute();
-        $rows = $statement->fetchAll();
+        $clusters = normalizeClusterRows($statement->fetchAll(), $sessionUserId !== null);
+        $clusters = mergeSmallNeighbourClusters($clusters, $zoom);
 
-        foreach ($rows as $row) {
-            $totalCount += (int) $row['meadow_count'];
-            $lat = isset($row['centroid_lat']) ? (float) $row['centroid_lat'] : null;
-            $lng = isset($row['centroid_lng']) ? (float) $row['centroid_lng'] : null;
-            if ($lat === null || $lng === null) {
-                continue;
-            }
+        foreach ($clusters as $cluster) {
+            $lat = $cluster['representative_lat'];
+            $lng = $cluster['representative_lng'];
 
             $props = [
                 'centroid_lat' => $lat,
                 'centroid_lng' => $lng,
-                'cluster_count' => (int) $row['meadow_count'],
+                'cluster_count' => $cluster['meadow_count'],
             ];
             if ($sessionUserId !== null) {
-                $props['has_favourite'] = ((int) ($row['has_favourite'] ?? 0)) === 1;
+                $props['has_favourite'] = $cluster['has_favourite'];
             }
 
             $features[] = [
@@ -395,7 +618,7 @@ try {
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
                 LEFT JOIN user_favourite_meadows f
                     ON f.source_id = m.source_id AND f.user_id = :favUser
-                WHERE ' . buildWhereClause($where) . '
+                WHERE ' . buildWhereClause($polygonWhere) . '
                 ORDER BY m.area_m2 DESC
                 LIMIT :limit
             ';
@@ -425,7 +648,7 @@ try {
                     g.geom_geojson
                 FROM meadows m
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
-                WHERE ' . buildWhereClause($where) . '
+                WHERE ' . buildWhereClause($polygonWhere) . '
                 ORDER BY m.area_m2 DESC
                 LIMIT :limit
             ';
