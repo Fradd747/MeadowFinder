@@ -364,7 +364,10 @@ declare(strict_types=1);
             <div id="userPanel" class="user-panel" aria-label="Účet"></div>
 
             <div class="welcome-modal-credit">
-                <span>Vytvořil Jan Korbay</span>
+                <div class="welcome-modal-credit-author">
+                    <span>Vytvořil Jan Korbay</span>
+                    <a class="welcome-modal-email" href="mailto:jan.korbay@skaut.cz">jan.korbay@skaut.cz</a>
+                </div>
                 <div class="welcome-modal-socials" aria-label="Sociální sítě autora">
                     <a
                         class="welcome-modal-social"
@@ -491,7 +494,10 @@ declare(strict_types=1);
                 <button type="button" class="welcome-modal-start">Začít</button>
             </div>
             <div class="welcome-modal-credit">
-                <span>Vytvořil Jan Korbay</span>
+                <div class="welcome-modal-credit-author">
+                    <span>Vytvořil Jan Korbay</span>
+                    <a class="welcome-modal-email" href="mailto:jan.korbay@skaut.cz">jan.korbay@skaut.cz</a>
+                </div>
                 <div class="welcome-modal-socials" aria-label="Sociální sítě autora">
                     <a
                         class="welcome-modal-social"
