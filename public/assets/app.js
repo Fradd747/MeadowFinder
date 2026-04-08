@@ -5,6 +5,8 @@ const czechBounds = L.latLngBounds(
 const POLYGON_ZOOM_THRESHOLD = 14;
 /** RUIAN parcel identify + Nahlížení do KN only from this zoom (inclusive). */
 const CADASTRAL_KN_CLICK_MIN_ZOOM = 17;
+/** ČÚZK WMS goes to z22; orthophoto tiles are native to z20 — must match so map maxZoom does not clear the base layer. */
+const CADASTRAL_STACK_MAX_ZOOM = 22;
 
 const map = L.map("map", {
   preferCanvas: true,
@@ -26,7 +28,7 @@ const satelliteLayer = L.tileLayer(
     attribution:
       "Tiles &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
     maxNativeZoom: 20,
-    maxZoom: 21,
+    maxZoom: CADASTRAL_STACK_MAX_ZOOM,
   },
 );
 
@@ -122,7 +124,7 @@ const cadastralLayer = L.tileLayer.wms("https://services.cuzk.cz/wms/wms.asp", {
   version: "1.3.0",
   crs: L.CRS.EPSG3857,
   uppercase: false,
-  maxZoom: 22,
+  maxZoom: CADASTRAL_STACK_MAX_ZOOM,
   pane: "cadastralPane",
 });
 const cadastralBasemapLayer = L.layerGroup([satelliteLayer, cadastralLayer]);
