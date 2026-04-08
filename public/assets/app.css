@@ -1381,6 +1381,8 @@ h6,
 }
 
 .welcome-modal-note {
+    display: grid;
+    gap: 0.65rem;
     padding: 0.75rem 0.85rem;
     border-radius: 0.75rem;
     background: #f7fbf7;
@@ -1388,6 +1390,10 @@ h6,
     color: #4a5a4f;
     font-size: 0.9rem;
     line-height: 1.5;
+}
+
+.welcome-modal-note p {
+    margin: 0;
 }
 
 .login-modal-error {
@@ -1790,10 +1796,6 @@ body.legal-page {
     .welcome-modal-footer {
         flex-direction: column;
         align-items: flex-start;
-    }
-
-    .welcome-modal-credit {
-        justify-content: flex-start;
     }
 
     .legal-main {

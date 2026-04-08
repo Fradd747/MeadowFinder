@@ -482,10 +482,21 @@ declare(strict_types=1);
                 <li>Přepínejte mezi běžnou, satelitní, katastrální a turistickou mapou.</li>
                 <li>Klikněte na louku pro detail a po přihlášení si ji uložte mezi oblíbené.</li>
             </ul>
-            <p class="welcome-modal-note">
-                Data slouží jako orientační podklad. Vhodnost místa vždy ověřte podle skutečného
-                stavu, přístupu a pravidel v terénu.
-            </p>
+            <div class="welcome-modal-note">
+                <p>
+                    Data slouží jako orientační podklad. Vhodnost místa vždy ověřte podle skutečného
+                    stavu, přístupu a pravidel v terénu.
+                </p>
+            </div>
+            <div class="welcome-modal-note">
+                <p>
+                    <strong>
+                        Chcete něco opravit nebo vylepšit?
+                    </strong>
+                    <br>
+                    Napište mi zprávu - třeba na e-mail níže.
+                </p>
+            </div>
             <div class="welcome-modal-footer">
                 <label class="welcome-modal-toggle">
                     <input type="checkbox" id="welcomeModalDontShow">
