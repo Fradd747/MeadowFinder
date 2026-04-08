@@ -44,7 +44,7 @@ h6,
 
 .layout {
     display: grid;
-    grid-template-columns: clamp(340px, 25vw, 400px) 1fr;
+    grid-template-columns: clamp(360px, 25vw, 400px) 1fr;
     height: 100vh;
     min-height: 100dvh;
     position: relative;
