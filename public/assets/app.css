@@ -1346,7 +1346,7 @@ h6,
 }
 
 .welcome-modal-dialog {
-    width: min(460px, calc(100vw - 2rem));
+    width: min(560px, calc(100vw - 2rem));
 }
 
 .welcome-modal-dialog h1,
@@ -1783,6 +1783,10 @@ body.legal-page {
 
     .welcome-modal-dialog,
     .login-modal-dialog {
+        padding: 1.25rem;
+    }
+
+    .login-modal-dialog {
         width: min(
             400px,
             calc(
@@ -1790,7 +1794,16 @@ body.legal-page {
                     env(safe-area-inset-right, 0px) - 3rem
             )
         );
-        padding: 1.25rem;
+    }
+
+    .welcome-modal-dialog {
+        width: min(
+            560px,
+            calc(
+                100vw - env(safe-area-inset-left, 0px) -
+                    env(safe-area-inset-right, 0px) - 3rem
+            )
+        );
     }
 
     .welcome-modal-footer {
@@ -1991,6 +2004,13 @@ body.legal-page {
 
     .welcome-modal-dialog,
     .login-modal-dialog {
+        padding-block: 1rem;
+        padding-inline: max(1.35rem, env(safe-area-inset-left, 0px))
+            max(1.35rem, env(safe-area-inset-right, 0px));
+        border-radius: 0.8rem;
+    }
+
+    .login-modal-dialog {
         width: min(
             400px,
             calc(
@@ -1998,10 +2018,16 @@ body.legal-page {
                     env(safe-area-inset-right, 0px) - 3.5rem
             )
         );
-        padding-block: 1rem;
-        padding-inline: max(1.35rem, env(safe-area-inset-left, 0px))
-            max(1.35rem, env(safe-area-inset-right, 0px));
-        border-radius: 0.8rem;
+    }
+
+    .welcome-modal-dialog {
+        width: min(
+            560px,
+            calc(
+                100vw - env(safe-area-inset-left, 0px) -
+                    env(safe-area-inset-right, 0px) - 3.5rem
+            )
+        );
     }
 
     .welcome-modal-start {
