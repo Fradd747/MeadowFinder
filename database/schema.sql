@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS meadows (
     KEY idx_meadows_nearest_river_m (nearest_river_m),
     KEY idx_meadows_nearest_settlement_m (nearest_settlement_m),
     KEY idx_meadows_nearest_building_m (nearest_building_m),
+    KEY idx_meadows_centroid_lng_lat (centroid_lng, centroid_lat),
     SPATIAL INDEX idx_meadows_bbox_polygon (bbox_polygon)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
