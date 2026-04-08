@@ -1108,7 +1108,7 @@ const rangeSliderConfig = {
     maxInputId: "maxRiver",
     outputId: "riverRangeValue",
     defaultMinValue: 0,
-    defaultMaxValue: 3000,
+    defaultMaxValue: 500,
     format: formatSliderDistance,
   },
   settlement: {
@@ -1172,7 +1172,7 @@ const sliderConfig = {
     format: formatSliderDistance,
   },
   maxRiver: {
-    defaultValue: 3000,
+    defaultValue: 500,
     isUnlimitedAtMax: true,
     format: (value, input) => (Number(value) >= Number(input.max) ? "Bez limitu" : formatSliderDistance(value)),
   },

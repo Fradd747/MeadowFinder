@@ -171,7 +171,7 @@ declare(strict_types=1);
                         <div class="range-group">
                             <div class="range-label-row">
                                 <span class="filter-label">Vzdálenost od větší řeky (m)</span>
-                                <span class="range-value" id="riverRangeValue">0 m - Bez limitu</span>
+                                <span class="range-value" id="riverRangeValue">0 m - 500 m</span>
                             </div>
                             <div class="range-field range-field-dual">
                                 <div class="range-slider" id="riverRange">
@@ -192,7 +192,7 @@ declare(strict_types=1);
                                         min="0"
                                         max="3000"
                                         step="10"
-                                        value="3000"
+                                        value="500"
                                         aria-label="Maximální vzdálenost od větší řeky"
                                     >
                                 </div>
