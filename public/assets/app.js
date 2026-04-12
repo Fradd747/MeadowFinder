@@ -1072,7 +1072,8 @@ const rangeSliderConfig = {
     sliderId: "areaRange",
     minInputId: "minArea",
     maxInputId: "maxArea",
-    outputId: "areaRangeValue",
+    outputMinId: "areaRangeValueMin",
+    outputMaxId: "areaRangeValueMax",
     defaultMinValue: 500,
     defaultMaxValue: 50000,
     format: formatSliderArea,
@@ -1081,7 +1082,8 @@ const rangeSliderConfig = {
     sliderId: "roadRange",
     minInputId: "minRoad",
     maxInputId: "maxRoad",
-    outputId: "roadRangeValue",
+    outputMinId: "roadRangeValueMin",
+    outputMaxId: "roadRangeValueMax",
     defaultMinValue: 0,
     defaultMaxValue: 2000,
     format: formatSliderDistance,
@@ -1090,7 +1092,8 @@ const rangeSliderConfig = {
     sliderId: "pathRange",
     minInputId: "minPath",
     maxInputId: "maxPath",
-    outputId: "pathRangeValue",
+    outputMinId: "pathRangeValueMin",
+    outputMaxId: "pathRangeValueMax",
     defaultMinValue: 0,
     defaultMaxValue: 250,
     format: formatSliderDistance,
@@ -1099,7 +1102,8 @@ const rangeSliderConfig = {
     sliderId: "waterRange",
     minInputId: "minWater",
     maxInputId: "maxWater",
-    outputId: "waterRangeValue",
+    outputMinId: "waterRangeValueMin",
+    outputMaxId: "waterRangeValueMax",
     defaultMinValue: 0,
     defaultMaxValue: 150,
     format: formatSliderDistance,
@@ -1108,7 +1112,8 @@ const rangeSliderConfig = {
     sliderId: "riverRange",
     minInputId: "minRiver",
     maxInputId: "maxRiver",
-    outputId: "riverRangeValue",
+    outputMinId: "riverRangeValueMin",
+    outputMaxId: "riverRangeValueMax",
     defaultMinValue: 0,
     defaultMaxValue: 500,
     format: formatSliderDistance,
@@ -1117,7 +1122,8 @@ const rangeSliderConfig = {
     sliderId: "settlementRange",
     minInputId: "minSettlement",
     maxInputId: "maxSettlement",
-    outputId: "settlementRangeValue",
+    outputMinId: "settlementRangeValueMin",
+    outputMaxId: "settlementRangeValueMax",
     defaultMinValue: 600,
     defaultMaxValue: 3000,
     format: formatSliderDistance,
@@ -1126,7 +1132,8 @@ const rangeSliderConfig = {
     sliderId: "buildingRange",
     minInputId: "minBuilding",
     maxInputId: "maxBuilding",
-    outputId: "buildingRangeValue",
+    outputMinId: "buildingRangeValueMin",
+    outputMaxId: "buildingRangeValueMax",
     defaultMinValue: 150,
     defaultMaxValue: 3000,
     format: formatSliderDistance,
@@ -1400,7 +1407,8 @@ function syncRangeSliderValue(rangeId) {
   const config = rangeSliderConfig[rangeId];
   const minInput = document.getElementById(config.minInputId);
   const maxInput = document.getElementById(config.maxInputId);
-  const output = document.getElementById(config.outputId);
+  const outputMin = document.getElementById(config.outputMinId);
+  const outputMax = document.getElementById(config.outputMaxId);
   const slider = document.getElementById(config.sliderId);
   const minBound = Number(minInput.min);
   const maxBound = Number(minInput.max);
@@ -1410,7 +1418,8 @@ function syncRangeSliderValue(rangeId) {
 
   slider.style.setProperty("--range-start", `${rangeStart}%`);
   slider.style.setProperty("--range-end", `${rangeEnd}%`);
-  output.textContent = `${config.format(minInput.value, minInput)} - ${sliderConfig[config.maxInputId].format(maxInput.value, maxInput)}`;
+  outputMin.textContent = config.format(minInput.value, minInput);
+  outputMax.textContent = sliderConfig[config.maxInputId].format(maxInput.value, maxInput);
 }
 
 function syncAllSliderValues() {
@@ -1774,6 +1783,8 @@ const METRIC_DESCRIPTIONS = {
     "Výška, kterou nepřesahuje 80 % všech nerovností na louce, takže čím je toto číslo vyšší, tím je terén celkově hrbolatější.",
   averageElevationDeviation:
     "Průměr absolutních odchylek výšky každého pixelu výšky od průměrné výšky louky (v metrech). Širší ukazatel variability výšky na parcele.",
+  settlementDistance:
+    "Vzdálenost je měřena od prostředního bodu nejbližší vesnice/města. Ne od krajní hranice obce.",
 };
 
 let metricHelpIdCounter = 0;
@@ -1822,18 +1833,24 @@ function createMetricHelpElement(metricKey) {
   return wrap;
 }
 
+function wrapFilterLabelWithMetricHelp(container, textSpan) {
+  const key = container.dataset.metricHelp;
+  if (!textSpan || !key || !METRIC_DESCRIPTIONS[key]) {
+    return;
+  }
+  const row = document.createElement("span");
+  row.className = "filter-label-with-help";
+  textSpan.replaceWith(row);
+  row.appendChild(textSpan);
+  row.appendChild(createMetricHelpElement(key));
+}
+
 function initAdvancedMetricHelp() {
   document.querySelectorAll(".advanced-field[data-metric-help]").forEach((label) => {
-    const key = label.dataset.metricHelp;
-    const textSpan = label.querySelector(".filter-label");
-    if (!textSpan || !METRIC_DESCRIPTIONS[key]) {
-      return;
-    }
-    const row = document.createElement("span");
-    row.className = "filter-label-with-help";
-    textSpan.replaceWith(row);
-    row.appendChild(textSpan);
-    row.appendChild(createMetricHelpElement(key));
+    wrapFilterLabelWithMetricHelp(label, label.querySelector(".filter-label"));
+  });
+  document.querySelectorAll(".range-group[data-metric-help]").forEach((group) => {
+    wrapFilterLabelWithMetricHelp(group, group.querySelector(":scope > .range-label-row > .filter-label"));
   });
 }
 

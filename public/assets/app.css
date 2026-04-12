@@ -519,8 +519,9 @@ h6,
 .range-label-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
 }
 
 .filter-label {
@@ -530,21 +531,53 @@ h6,
 .range-field {
     display: grid;
     gap: 0.45rem;
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .range-field-dual {
     gap: 0.55rem;
 }
 
+.range-field > .range-slider {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+}
+
+.range-value-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.range-value-row--single {
+    justify-content: center;
+}
+
 .range-value {
-    justify-self: start;
+    justify-self: center;
+    max-width: 100%;
     padding: 0.25rem 0.55rem;
     border-radius: 999px;
     background: #eef5ef;
     color: #1f432b;
     font-size: 0.88rem;
     font-weight: bold;
-    white-space: nowrap;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+.range-value--bound {
+    flex: 0 1 auto;
+    max-width: calc(50% - 0.375rem);
+    text-align: start;
+}
+
+.range-value-row .range-value--bound:last-child {
+    text-align: end;
 }
 
 .filters input[type="range"] {
@@ -555,6 +588,9 @@ h6,
 
 .range-slider {
     position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
     height: 1.5rem;
     --range-start: 0%;
     --range-end: 100%;
@@ -1880,12 +1916,6 @@ body.legal-page {
 
     .range-label-row {
         align-items: flex-start;
-        flex-direction: column;
-        gap: 0.35rem;
-    }
-
-    .range-value {
-        white-space: normal;
     }
 
     .slope-range-end-labels {
