@@ -26,11 +26,11 @@ declare(strict_types=1);
         <p class="pl-10">Platné od: 2026-04-04</p>
         
         <p class="pt-2"><strong>1. Úvodní ustanovení</strong></p>
-        <p class="pl-10">1.1 Tyto obchodní podmínky upravují práva a povinnosti při používání aplikace pro generování harmonogramů (dále jen "Aplikace") poskytované společností Jan Korbay, se sídlem Revoluční 25, Hovorčovice (dále jen "Poskytovatel").</p>
+        <p class="pl-10">1.1 Tyto obchodní podmínky upravují práva a povinnosti při používání aplikace pro vyhledávání luk (dále jen "Aplikace") poskytované společností Jan Korbay, se sídlem Revoluční 25, Hovorčovice (dále jen "Poskytovatel").</p>
         
         <p class="pt-2"><strong>2. Definice pojmů</strong></p>
         <p class="pl-10">2.1 Pro účely těchto podmínek se rozumí:</p>
-        <p class="pl-20">2.1.1 <strong>Aplikace</strong> - webová aplikace pro generování harmonogramů dostupná na harmonogram.skauting.cz</p>
+        <p class="pl-20">2.1.1 <strong>Aplikace</strong> - webová aplikace pro vyhledávání luk dostupná na louky.skauting.cz</p>
         <p class="pl-20">2.1.2 <strong>Uživatel</strong> - fyzická nebo právnická osoba, která využívá Aplikaci</p>
         <p class="pl-20">2.1.3 <strong>Obsah</strong> - jakýkoliv materiál nebo informace, které Uživatel nahraje nebo vytvoří v Aplikaci</p>
         <p class="pl-20">2.1.4 <strong>Služba</strong> - funkce a možnosti poskytované Aplikací</p>
@@ -70,7 +70,7 @@ declare(strict_types=1);
         <p class="pt-2"><strong>9. Omezení odpovědnosti</strong></p>
         <p class="pl-10">9.1 Aplikace je poskytována "tak, jak je" bez jakýchkoli záruk. Poskytovatel neodpovídá za přerušení služby, ztrátu dat nebo jiné škody vzniklé v souvislosti s používáním Aplikace.</p>
         <p class="pl-10">9.2 Poskytovatel nenese odpovědnost za:</p>
-        <p class="pl-20">9.2.1 Přesnost nebo úplnost generovaných harmonogramů</p>
+        <p class="pl-20">9.2.1 Přesnost nebo úplnost informací zobrazovaných na mapě</p>
         <p class="pl-20">9.2.2 Ztrátu nebo poškození dat Uživatele</p>
         <p class="pl-20">9.2.3 Škody způsobené nemožností používat Aplikaci</p>
         <p class="pl-20">9.2.4 Škody způsobené třetími stranami v souvislosti s používáním Aplikace</p>

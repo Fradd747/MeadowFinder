@@ -25,7 +25,7 @@ declare(strict_types=1);
         <p><strong>1 Správce osobních údajů</strong></p>
         <p>1.1 Správce osobních údajů&nbsp;Jan Korbay, bytem&nbsp;Revoluční 25, Hovorčovice,&nbsp;(dále jen "správce"), prohlašuje, že veškeré osobní údaje zpracovávané správcem jsou přísně důvěrné. Správce s nimi nakládá v souladu s vnitrostátními právními předpisy i předpisy Evropské unie platnými v oblasti ochrany osobních údajů.</p>
         <p>1.2 Správce shromažďuje, uchovává a využívá Vaše osobní údaje ve smyslu zákona č. 110/2019 Sb. o zpracování osobních údajů (dále jen zákon o zpracování osobních údajů), resp. nařízení Evropského parlamentu a Rady (EU) 2016/679 ze dne 27. dubna 2016, o ochraně fyzických osob v souvislosti se zpracováním osobních údajů a o volném pohybu těchto údajů a o zrušení směrnice 95/46/ES (dále jen "nařízení GDPR"). Jednotlivé účely, pro které správce osobní údaje zpracovává, jsou dále vymezeny</p>
-        <p>1.3 Správce tyto osobní údaje shromažďuje i prostřednictvím svých internetových stránek na adrese harmonogram.skauting.cz&nbsp;(dále jen "internetové stránky").</p>
+        <p>1.3 Správce tyto osobní údaje shromažďuje i prostřednictvím svých internetových stránek na adrese louky.skauting.cz&nbsp;(dále jen "internetové stránky").</p>
         <p>1.4 Tyto zásady vydává správce proto, abyste byli dostatečně informováni o tom, jaké Vaše osobní údaje správce zpracovává, za jakým účelem, po jakou dobu, kdo k Vašim osobním údajům bude mít přístup a jaká máte práva. Tyto zásady se vztahují na všechny osobní údaje shromážděné správcem, ať už byly shromážděny za účelem plnění smluvního vztahu, právní povinnosti, oprávněného zájmu, nebo uděleného souhlasu.</p>
         <p><strong>2 Zpracovávané údaje</strong></p>
         <p>2.1 Jednotlivými účely zpracování se míní následující:</p>
@@ -42,7 +42,7 @@ declare(strict_types=1);
         <p>2.3 Osobní údaje jsou správcem zpracovány&nbsp;manuálně i automatizovaně. Správce je oprávněn zpracovávat některé informace automatizovaně například pro vytvoření statistických informací o návštěvnosti svých internetových stránek.</p>
         <p><strong>3 Osobní údaje zpracovávané na základě souhlasu</strong></p>
         <p>3.1 Pokud jsme od Vás získali souhlas ke zpracování osobních údajů, stalo se tak pro některý z následujících účelů:</p>
-        <p>3.1.1 registrací do portálu harmonogram.skauting.cz</p>
+        <p>3.1.1 registrací do portálu louky.skauting.cz</p>
         <p><strong>4 Práva subjektu údajů</strong></p>
         <p>4.1 Jako subjekt údajů máte uvedená práva, která pro Vás z právních předpisů vyplývají a která můžete kdykoliv uplatnit. Jedná se o:</p>
         <p>4.1.1 <strong>právo na přístup k osobním údajům</strong>, podle kterého máte právo získat od správce informace o tom, jestli správce zpracovává Vaše osobní údaje. Tuto informaci je správce povinen Vám bez zbytečného odkladu předat. Obsah informace je dán ustanovením článku 15 nařízení GDPR. Správce má právo za poskytnutí informace požadovat přiměřenou úhradu nepřevyšující náklady nezbytné na poskytnutí informace;</p>
