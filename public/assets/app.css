@@ -58,6 +58,9 @@ h6,
     scrollbar-width: none;
     background: #ffffff;
     border-right: 1px solid #d9e4da;
+    /* Stack above .map-shell so metric help tooltips that extend past this column paint over the map. */
+    position: relative;
+    z-index: 2;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -126,6 +129,7 @@ h6,
     min-width: 0;
     min-height: 0;
     position: relative;
+    z-index: 1;
 }
 
 .map-toolbar {
@@ -391,50 +395,43 @@ h6,
     flex-shrink: 0;
 }
 
-.metric-help:hover,
-.metric-help:focus-within {
-    z-index: 10050;
-}
-
 .metric-help-btn {
     box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.4rem;
+    height: 1.4rem;
     margin: 0;
     padding: 0;
-    border: 1px solid #5d8a6e;
+    border: none;
     border-radius: 50%;
-    background: #e8f2eb;
+    background: transparent;
     color: #1f6b42;
-    font-size: 0.62rem;
-    font-weight: bold;
-    font-style: italic;
-    font-family: inherit;
-    line-height: 1;
+    line-height: 0;
     cursor: help;
     flex-shrink: 0;
 }
 
-.metric-help-btn:hover,
-.metric-help-btn:focus-visible {
-    background: #d4e8db;
-    border-color: #2d7d4f;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(45, 125, 79, 0.25);
+.metric-help-btn-icon {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1/1;
+    flex-shrink: 0;
 }
 
 .metric-help-tooltip {
     position: absolute;
     z-index: 10051;
-    /* Anchor to icon’s right and grow left — avoids the sidebar scrollbar, which paints above scrollable content. */
-    left: auto;
-    right: 0;
-    top: calc(100% + 6px);
+    /* Fallback layout when closed (in sidebar); when open, JS moves to body + fixed coords. */
+    left: 100%;
+    right: auto;
+    top: 50%;
+    margin-inline-start: 0.35rem;
+    transform: translateY(-50%);
     min-width: 11.5rem;
     max-width: min(17rem, calc(100vw - 2rem));
+    overflow-wrap: break-word;
     padding: 0.5rem 0.65rem;
     border: 1px solid #c5d8ca;
     border-radius: 0.55rem;
@@ -454,8 +451,13 @@ h6,
         visibility 120ms ease;
 }
 
-.metric-help:hover .metric-help-tooltip,
-.metric-help:focus-within .metric-help-tooltip {
+.metric-help-tooltip.metric-help-tooltip--open {
+    position: fixed;
+    z-index: 10100;
+    left: 0;
+    top: 0;
+    margin-inline-start: 0;
+    transform: translateY(-50%);
     opacity: 1;
     visibility: visible;
 }

@@ -1787,13 +1787,15 @@ function escapeHtml(text) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 }
 
+const METRIC_HELP_BTN_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="metric-help-btn-icon" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>`;
+
 function metricHelpHtml(metricKey) {
   const description = METRIC_DESCRIPTIONS[metricKey];
   if (!description) {
     return "";
   }
   const tipId = nextMetricHelpDomId();
-  return `<span class="metric-help"><button type="button" class="metric-help-btn" aria-describedby="${tipId}" aria-label="Vysvětlení metriky"><span aria-hidden="true">i</span></button><span id="${tipId}" class="metric-help-tooltip" role="tooltip">${escapeHtml(description)}</span></span>`;
+  return `<span class="metric-help"><button type="button" class="metric-help-btn" aria-describedby="${tipId}" aria-label="Vysvětlení metriky">${METRIC_HELP_BTN_ICON_SVG}</button><span id="${tipId}" class="metric-help-tooltip" role="tooltip">${escapeHtml(description)}</span></span>`;
 }
 
 function createMetricHelpElement(metricKey) {
@@ -1809,7 +1811,7 @@ function createMetricHelpElement(metricKey) {
   btn.className = "metric-help-btn";
   btn.setAttribute("aria-describedby", tipId);
   btn.setAttribute("aria-label", "Vysvětlení metriky");
-  btn.innerHTML = "<span aria-hidden=\"true\">i</span>";
+  btn.innerHTML = METRIC_HELP_BTN_ICON_SVG;
   const tip = document.createElement("span");
   tip.id = tipId;
   tip.className = "metric-help-tooltip";
@@ -1833,6 +1835,140 @@ function initAdvancedMetricHelp() {
     row.appendChild(textSpan);
     row.appendChild(createMetricHelpElement(key));
   });
+}
+
+/** Sidebar `overflow-y: auto` clips horizontal overflow; portaling avoids map/sidebar edge cut-off. */
+let activeMetricHelpTip = null;
+
+function dismissMetricHelpTooltip() {
+  if (!activeMetricHelpTip) {
+    return;
+  }
+  const { wrap, tip } = activeMetricHelpTip;
+  tip.classList.remove("metric-help-tooltip--open");
+  tip.style.left = "";
+  tip.style.top = "";
+  if (wrap.isConnected) {
+    wrap.appendChild(tip);
+  } else {
+    tip.remove();
+  }
+  activeMetricHelpTip = null;
+}
+
+function positionMetricHelpTooltip(btn, tip) {
+  const rect = btn.getBoundingClientRect();
+  const gap = 6;
+  const edgePad = 10;
+  let left = rect.right + gap;
+  tip.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
+  tip.style.left = `${Math.round(left)}px`;
+  tip.style.right = "auto";
+  requestAnimationFrame(() => {
+    if (!tip.classList.contains("metric-help-tooltip--open")) {
+      return;
+    }
+    const tr = tip.getBoundingClientRect();
+    if (tr.right > window.innerWidth - edgePad) {
+      left -= tr.right - (window.innerWidth - edgePad);
+      tip.style.left = `${Math.round(Math.max(edgePad, left))}px`;
+    }
+    if (tr.left < edgePad) {
+      tip.style.left = `${edgePad}px`;
+    }
+  });
+}
+
+function openMetricHelpTooltip(btn) {
+  const wrap = btn.closest(".metric-help");
+  const tip = wrap?.querySelector(".metric-help-tooltip");
+  if (!wrap || !tip) {
+    return;
+  }
+  if (activeMetricHelpTip?.btn === btn) {
+    return;
+  }
+  dismissMetricHelpTooltip();
+  document.body.appendChild(tip);
+  activeMetricHelpTip = { wrap, tip, btn };
+  requestAnimationFrame(() => {
+    if (activeMetricHelpTip?.btn !== btn) {
+      return;
+    }
+    tip.classList.add("metric-help-tooltip--open");
+    positionMetricHelpTooltip(btn, tip);
+  });
+}
+
+function closeMetricHelpTooltip(btn) {
+  if (!activeMetricHelpTip || activeMetricHelpTip.btn !== btn) {
+    return;
+  }
+  dismissMetricHelpTooltip();
+}
+
+function initMetricHelpTooltips() {
+  document.addEventListener(
+    "mouseover",
+    (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      const btn = event.target.closest(".metric-help-btn");
+      if (!btn) {
+        return;
+      }
+      if (event.relatedTarget instanceof Node && btn.contains(event.relatedTarget)) {
+        return;
+      }
+      openMetricHelpTooltip(btn);
+    },
+    true,
+  );
+  document.addEventListener(
+    "mouseout",
+    (event) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      const btn = event.target.closest(".metric-help-btn");
+      if (!btn) {
+        return;
+      }
+      if (event.relatedTarget instanceof Node && btn.contains(event.relatedTarget)) {
+        return;
+      }
+      if (document.activeElement === btn) {
+        return;
+      }
+      closeMetricHelpTooltip(btn);
+    },
+    true,
+  );
+  document.addEventListener("focusin", (event) => {
+    if (!(event.target instanceof Element) || !event.target.matches(".metric-help-btn")) {
+      return;
+    }
+    openMetricHelpTooltip(event.target);
+  });
+  document.addEventListener("focusout", (event) => {
+    if (!(event.target instanceof Element) || !event.target.matches(".metric-help-btn")) {
+      return;
+    }
+    const related = event.relatedTarget;
+    if (related instanceof Node && event.target.closest(".metric-help")?.contains(related)) {
+      return;
+    }
+    closeMetricHelpTooltip(event.target);
+  });
+  const reposition = () => {
+    if (!activeMetricHelpTip) {
+      return;
+    }
+    positionMetricHelpTooltip(activeMetricHelpTip.btn, activeMetricHelpTip.tip);
+  };
+  window.addEventListener("resize", reposition);
+  document.addEventListener("scroll", reposition, true);
 }
 
 function initAnimatedDetailsPanel(detailsEl, bodyEl) {
@@ -2002,6 +2138,7 @@ function scrollSidebarToSelection() {
 }
 
 function showSelection(properties) {
+  dismissMetricHelpTooltip();
   const linksHtml = selectionMapLinksHtml(properties);
   if (properties.cluster_count !== undefined) {
     lastSelectedMeadowProperties = null;
@@ -2189,6 +2326,7 @@ rangeSliderIds.forEach((rangeId) => {
 slopeFilterInput.addEventListener("input", () => {
   const index = Number(slopeFilterInput.value);
   applySlopeLevel(index);
+  dismissMetricHelpTooltip();
   selection.innerHTML = emptySelectionHtml;
   persistFilterState();
   debouncedFilterRefresh();
@@ -2214,6 +2352,7 @@ resetButton.addEventListener("click", () => {
   setFlatnessThresholds(slopeFilterLevels[DEFAULT_SLOPE_INDEX].thresholds);
   syncAllSliderValues();
   persistFilterState();
+  dismissMetricHelpTooltip();
   selection.innerHTML = emptySelectionHtml;
   refreshMeadows();
 });
@@ -2232,12 +2371,14 @@ document.addEventListener("mousedown", dismissMapContextMenuIfOutside, true);
 document.addEventListener("click", dismissMapContextMenuIfOutside, true);
 map.on("click", (e) => {
   hideMapContextMenu();
+  dismissMetricHelpTooltip();
   closeMobileMapPanels();
   void handleCadastralBasemapMapClick(e);
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideMapContextMenu();
+    dismissMetricHelpTooltip();
   }
 });
 map.on("zoomend", () => {
@@ -2252,9 +2393,11 @@ window.addEventListener("resize", syncBasemapControlState);
 window.addEventListener("resize", syncMobileMapPanels);
 rangeSliderIds.forEach((rangeId) => setActiveRangeThumb(rangeId, rangeSliderConfig[rangeId].maxInputId));
 initAdvancedMetricHelp();
+initMetricHelpTooltips();
 initAnimatedDetailsPanel(filtersPanel, filtersPanelBody);
 syncMobileSidebarState();
 syncMobileMapPanels();
+dismissMetricHelpTooltip();
 selection.innerHTML = emptySelectionHtml;
 if (!restorePersistedFilterState()) {
   syncAllSliderValues();
