@@ -421,6 +421,8 @@ h6,
 }
 
 .metric-help-tooltip {
+    box-sizing: border-box;
+    display: none;
     position: absolute;
     z-index: 10051;
     /* Fallback layout when closed (in sidebar); when open, JS moves to body + fixed coords. */
@@ -429,9 +431,11 @@ h6,
     top: 50%;
     margin-inline-start: 0.35rem;
     transform: translateY(-50%);
-    min-width: 11.5rem;
-    max-width: min(17rem, calc(100vw - 2rem));
+    min-width: min(11.5rem, calc(100vw - 1rem));
+    max-width: min(17rem, calc(100vw - 1rem));
+    max-height: calc(100dvh - 1rem);
     overflow-wrap: break-word;
+    overflow-y: auto;
     padding: 0.5rem 0.65rem;
     border: 1px solid #c5d8ca;
     border-radius: 0.55rem;
@@ -452,12 +456,13 @@ h6,
 }
 
 .metric-help-tooltip.metric-help-tooltip--open {
+    display: block;
     position: fixed;
     z-index: 10100;
     left: 0;
     top: 0;
     margin-inline-start: 0;
-    transform: translateY(-50%);
+    transform: none;
     opacity: 1;
     visibility: visible;
 }

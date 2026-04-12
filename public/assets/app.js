@@ -1877,22 +1877,30 @@ function positionMetricHelpTooltip(btn, tip) {
   const rect = btn.getBoundingClientRect();
   const gap = 6;
   const edgePad = 10;
-  let left = rect.right + gap;
-  tip.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
-  tip.style.left = `${Math.round(left)}px`;
+  const preferredLeft = rect.right + gap;
+  tip.style.top = `${edgePad}px`;
+  tip.style.left = `${Math.round(preferredLeft)}px`;
   tip.style.right = "auto";
   requestAnimationFrame(() => {
     if (!tip.classList.contains("metric-help-tooltip--open")) {
       return;
     }
     const tr = tip.getBoundingClientRect();
-    if (tr.right > window.innerWidth - edgePad) {
-      left -= tr.right - (window.innerWidth - edgePad);
-      tip.style.left = `${Math.round(Math.max(edgePad, left))}px`;
-    }
-    if (tr.left < edgePad) {
-      tip.style.left = `${edgePad}px`;
-    }
+    const leftSpace = rect.left - gap - tr.width;
+    const rightSpace = window.innerWidth - rect.right - gap;
+    let left =
+      tr.right > window.innerWidth - edgePad && leftSpace > rightSpace
+        ? rect.left - gap - tr.width
+        : preferredLeft;
+    const maxLeft = window.innerWidth - edgePad - tr.width;
+    left = Math.min(Math.max(edgePad, left), Math.max(edgePad, maxLeft));
+
+    const preferredTop = rect.top + rect.height / 2 - tr.height / 2;
+    const maxTop = window.innerHeight - edgePad - tr.height;
+    const top = Math.min(Math.max(edgePad, preferredTop), Math.max(edgePad, maxTop));
+
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(top)}px`;
   });
 }
 
