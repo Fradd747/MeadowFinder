@@ -410,6 +410,10 @@ const favouriteMeadowIds = new Set();
 const pendingFavouriteMeadowIds = new Set();
 /** Last single-meadow properties shown in sidebar (for refresh after favourite toggle). */
 let lastSelectedMeadowProperties = null;
+/** Click position for the open map context menu (used when opening KN after explicit action). */
+let contextMenuLatLng = null;
+/** In-flight RÚIAN parcel lookup after user chooses "Zobrazit v katastru". */
+let mapContextMenuKnFetchController = null;
 
 const AUTH_ERROR_MESSAGES = {
   oauth_not_configured: "Přihlášení není na serveru nastavené.",
@@ -970,27 +974,27 @@ phoneLayoutQuery.addEventListener("change", () => {
 
 if (selection) {
   selection.addEventListener("click", (event) => {
-    const btn = event.target.closest("[data-action='toggle-favourite']");
-    if (!btn) {
-      return;
-    }
-    const sourceId = typeof btn.dataset.sourceId === "string" ? btn.dataset.sourceId : "";
-    if (sourceId === "") {
-      return;
-    }
-    if (pendingFavouriteMeadowIds.has(sourceId)) {
-      return;
-    }
-    if (!authUser) {
-      if (!oauthConfigured) {
-        window.alert("Přihlášení není na serveru nastaveno.");
-      } else {
-        openLoginModal();
+    const favBtn = event.target.closest("[data-action='toggle-favourite']");
+    if (favBtn) {
+      const sourceId = typeof favBtn.dataset.sourceId === "string" ? favBtn.dataset.sourceId : "";
+      if (sourceId === "") {
+        return;
       }
+      if (pendingFavouriteMeadowIds.has(sourceId)) {
+        return;
+      }
+      if (!authUser) {
+        if (!oauthConfigured) {
+          window.alert("Přihlášení není na serveru nastaveno.");
+        } else {
+          openLoginModal();
+        }
+        return;
+      }
+      const isFav = favBtn.dataset.isFavourite === "true";
+      void handleFavouriteToggle(sourceId, isFav);
       return;
     }
-    const isFav = btn.dataset.isFavourite === "true";
-    void handleFavouriteToggle(sourceId, isFav);
   });
 }
 const formatSliderArea = (value) => `${Number(value).toLocaleString("cs-CZ")} m²`;
@@ -1228,6 +1232,9 @@ mapContextMenu.innerHTML = `
   >
     Otevřít v Mapy.com
   </a>
+  <button type="button" class="map-context-menu-item map-context-menu-item--kn" data-context-kn>
+    <strong class="map-context-menu-kn-title">Zobrazit v katastru</strong>
+  </button>
 `;
 document.body.append(mapContextMenu);
 
@@ -1255,27 +1262,54 @@ function buildRuianIdentifyUrl(latLng) {
   return `${RUIAN_IDENTIFY_URL}?${params.toString()}`;
 }
 
-async function fetchRuianParcelUniqueId(latLng) {
+function formatParcelUniqueIdString(raw) {
+  if (raw === null || raw === undefined || raw === "") {
+    return null;
+  }
+  const n = Number(raw);
+  if (!Number.isFinite(n)) {
+    return null;
+  }
+  const id = String(Math.round(n));
+  return /^\d+$/.test(id) ? id : null;
+}
+
+function parcelRecordFromRuianAttributes(attrs) {
+  if (!attrs) {
+    return null;
+  }
+  const rawId = attrs.id ?? attrs[RUIAN_PARCEL_UNIQUE_ID_FIELD];
+  const idString = formatParcelUniqueIdString(rawId);
+  if (!idString) {
+    return null;
+  }
+  const cislo = attrs.cisloparcely;
+  const cisloStr = cislo === null || cislo === undefined ? "" : String(cislo).trim();
+  const parcelNumber = cisloStr !== "" ? cisloStr : null;
+  return { idString, parcelNumber };
+}
+
+async function fetchRuianParcelRecordAtPoint(latLng, signal) {
   try {
     const url = buildRuianIdentifyUrl(latLng);
-    const response = await fetch(url);
+    const response = await fetch(url, signal ? { signal } : undefined);
     if (!response.ok) {
       return null;
     }
     const data = await response.json();
     const attrs = data.results?.[0]?.attributes;
-    if (!attrs) {
-      return null;
+    return parcelRecordFromRuianAttributes(attrs);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
     }
-    const raw = attrs[RUIAN_PARCEL_UNIQUE_ID_FIELD] ?? attrs.id;
-    if (raw === null || raw === undefined || raw === "") {
-      return null;
-    }
-    const id = String(raw).trim();
-    return /^\d+$/.test(id) ? id : null;
-  } catch {
     return null;
   }
+}
+
+async function fetchRuianParcelUniqueId(latLng) {
+  const rec = await fetchRuianParcelRecordAtPoint(latLng);
+  return rec?.idString ?? null;
 }
 
 function openKnParcelWindow(url) {
@@ -1619,15 +1653,18 @@ function selectionMapLinksHtml(properties) {
   }
 
   return `
-    <p class="selection-map-links">
-      <a class="selection-map-link" href="${links.google}" target="_blank" rel="noopener noreferrer">Google Maps</a>
-      <span class="selection-map-links-separator">|</span>
-      <a class="selection-map-link" href="${links.mapy}" target="_blank" rel="noopener noreferrer">Mapy.com</a>
-    </p>
+    <div class="selection-actions-grid">
+      <a class="selection-action-btn selection-action-btn--link" href="${links.google}" target="_blank" rel="noopener noreferrer">Google Maps</a>
+      <a class="selection-action-btn selection-action-btn--link" href="${links.mapy}" target="_blank" rel="noopener noreferrer">Mapy.com</a>
+    </div>
   `;
 }
 
 function hideMapContextMenu() {
+  mapContextMenuKnFetchController?.abort();
+  mapContextMenuKnFetchController = null;
+  contextMenuLatLng = null;
+
   if (mapContextMenu.hidden) {
     return;
   }
@@ -1641,6 +1678,18 @@ function showMapContextMenu(clientX, clientY, latLng) {
   if (!links) {
     hideMapContextMenu();
     return;
+  }
+
+  mapContextMenuKnFetchController?.abort();
+  mapContextMenuKnFetchController = null;
+  contextMenuLatLng = latLng;
+
+  const knBtn = mapContextMenu.querySelector("[data-context-kn]");
+  if (knBtn instanceof HTMLButtonElement) {
+    knBtn.disabled = false;
+    delete knBtn.dataset.parcelId;
+    delete knBtn.dataset.knAwaiting;
+    knBtn.innerHTML = `<strong class="map-context-menu-kn-title">Zobrazit v katastru</strong>`;
   }
 
   mapContextMenu.querySelector('[data-map-link="google"]').href = links.google;
@@ -1664,6 +1713,46 @@ function showMapContextMenu(clientX, clientY, latLng) {
   mapContextMenu.style.left = `${left}px`;
   mapContextMenu.style.top = `${top}px`;
   mapContextMenu.style.visibility = "";
+}
+
+async function handleContextMenuKnClick(button) {
+  const latLng = contextMenuLatLng;
+  if (!latLng) {
+    hideMapContextMenu();
+    return;
+  }
+
+  mapContextMenuKnFetchController?.abort();
+  const controller = new AbortController();
+  mapContextMenuKnFetchController = controller;
+
+  button.dataset.knAwaiting = "true";
+  button.disabled = true;
+  button.innerHTML = `<span class="map-context-menu-kn-loading">Načítání...</span>`;
+
+  try {
+    const rec = await fetchRuianParcelRecordAtPoint(latLng, controller.signal);
+    if (mapContextMenu.hidden) {
+      return;
+    }
+    if (rec) {
+      openKnParcelWindow(`${NAHLIZENI_PARCELA_PAGE}?typ=parcela&id=${encodeURIComponent(rec.idString)}`);
+    }
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return;
+    }
+    if (mapContextMenu && !mapContextMenu.hidden) {
+      button.textContent = "Parcelu nelze načíst";
+      button.disabled = true;
+    }
+  } finally {
+    delete button.dataset.knAwaiting;
+    if (mapContextMenuKnFetchController === controller) {
+      mapContextMenuKnFetchController = null;
+    }
+    hideMapContextMenu();
+  }
 }
 
 function handleMapContextMenu(event) {
@@ -1795,7 +1884,12 @@ function nextMetricHelpDomId() {
 }
 
 function escapeHtml(text) {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 const METRIC_HELP_BTN_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="metric-help-btn-icon" aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>`;
@@ -2162,14 +2256,20 @@ function scrollSidebarToSelection() {
   });
 }
 
+const SELECTION_KATASTR_HINT =
+  '<p class="selection-katastr-hint">Klikněte pravým tlačítkem na mapu pro zobrazení detailu parcely.</p>';
+
 function showSelection(properties) {
   dismissMetricHelpTooltip();
+
   const linksHtml = selectionMapLinksHtml(properties);
+
   if (properties.cluster_count !== undefined) {
     lastSelectedMeadowProperties = null;
     selection.innerHTML = `
       <strong>${formatCount(properties.cluster_count)} luk v této oblasti</strong>
       <p>Přibližte mapu pro načtení jednotlivých parcel.</p>
+      ${SELECTION_KATASTR_HINT}
       ${linksHtml}
     `;
     scrollSidebarToSelection();
@@ -2202,6 +2302,7 @@ function showSelection(properties) {
     <p>Vzdálenost od větší řeky: ${formatDistance(properties.nearest_river_m)}</p>
     <p>Vzdálenost od vesnice/města: ${formatDistance(properties.nearest_settlement_m)}</p>
     <p>Vzdálenost od budovy: ${formatDistance(properties.nearest_building_m)}</p>
+    ${SELECTION_KATASTR_HINT}
     ${linksHtml}
   `;
   revealSelectionInSidebar();
@@ -2383,7 +2484,15 @@ resetButton.addEventListener("click", () => {
 });
 
 map.getContainer().addEventListener("contextmenu", handleMapContextMenu);
-mapContextMenu.addEventListener("click", hideMapContextMenu);
+mapContextMenu.addEventListener("click", (event) => {
+  const kn = event.target?.closest?.("[data-context-kn]");
+  if (kn instanceof HTMLButtonElement) {
+    event.preventDefault();
+    void handleContextMenuKnClick(kn);
+    return;
+  }
+  hideMapContextMenu();
+});
 
 function dismissMapContextMenuIfOutside(event) {
   if (mapContextMenu.hidden || mapContextMenu.contains(event.target)) {
