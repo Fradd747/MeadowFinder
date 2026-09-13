@@ -251,6 +251,41 @@ function bindStatementValues(PDOStatement $statement, array $params): void
     }
 }
 
+function isMissingIndexException(PDOException $exception): bool
+{
+    $driverCode = (int) ($exception->errorInfo[1] ?? 0);
+    if ($driverCode === 1176) {
+        return true;
+    }
+
+    return str_contains($exception->getMessage(), "doesn't exist in table");
+}
+
+function pdoFetchAll(PDO $pdo, string $sql, array $params, ?int $limit = null): array
+{
+    $run = static function (string $query) use ($pdo, $params, $limit): array {
+        $statement = $pdo->prepare($query);
+        bindStatementValues($statement, $params);
+        if ($limit !== null) {
+            $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        }
+        $statement->execute();
+
+        return $statement->fetchAll();
+    };
+
+    try {
+        return $run($sql);
+    } catch (PDOException $exception) {
+        $fallbackSql = preg_replace('/\sFORCE INDEX \([^)]+\)/', '', $sql);
+        if (!is_string($fallbackSql) || $fallbackSql === $sql || !isMissingIndexException($exception)) {
+            throw $exception;
+        }
+
+        return $run($fallbackSql);
+    }
+}
+
 function fetchUnfilteredClusterRows(
     PDO $pdo,
     int $clusterTier,
@@ -292,17 +327,14 @@ function fetchFilteredClusterRows(PDO $pdo, string $clusterWhereSql, array $clus
             AVG(m.centroid_lat) AS representative_lat,
             AVG(m.centroid_lng) AS representative_lng,
             COUNT(*) AS meadow_count
-        FROM meadows m FORCE INDEX (idx_meadows_centroid_lng_lat)
+        FROM meadows m
         INNER JOIN meadow_cluster_memberships cm
             ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
         WHERE ' . $clusterWhereSql . '
         GROUP BY cm.bucket_x, cm.bucket_y
     ';
-    $statement = $pdo->prepare($sql);
-    bindStatementValues($statement, $clusterParams);
-    $statement->execute();
 
-    return $statement->fetchAll();
+    return pdoFetchAll($pdo, $sql, $clusterParams);
 }
 
 /**
@@ -747,16 +779,7 @@ try {
             ';
         }
 
-        $statement = $pdo->prepare($sql);
-        foreach ($polyParams as $key => $value) {
-            if ($key === ':limit') {
-                continue;
-            }
-            $statement->bindValue($key, $value);
-        }
-        $statement->bindValue(':limit', POLYGON_RESULT_LIMIT, PDO::PARAM_INT);
-        $statement->execute();
-        $rows = $statement->fetchAll();
+        $rows = pdoFetchAll($pdo, $sql, $polyParams, POLYGON_RESULT_LIMIT);
 
         foreach ($rows as $row) {
             try {
@@ -811,5 +834,6 @@ try {
         JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
     );
 } catch (Throwable $exception) {
+    error_log('meadows.php: ' . $exception->getMessage());
     respondWithError(500, 'Došlo k chybě serveru.');
 }
