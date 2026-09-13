@@ -32,7 +32,7 @@ function meadowFinderIsHttpsRequest(): bool
     return strtolower((string) $forwarded) === 'https';
 }
 
-function meadowFinderStartSession(): void
+function meadowFinderStartSession(bool $readAndClose = false): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
         return;
@@ -47,13 +47,28 @@ function meadowFinderStartSession(): void
         'samesite' => 'Lax',
     ]);
 
-    session_start();
+    $options = [];
+    if ($readAndClose) {
+        $options['read_and_close'] = true;
+    }
+
+    session_start($options);
 }
 
-function meadowFinderSessionUserId(): ?int
+function meadowFinderSessionUserId(bool $readAndClose = false): ?int
 {
-    meadowFinderStartSession();
-    if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        $cookieName = session_name();
+        if (!isset($_COOKIE[$cookieName])) {
+            return null;
+        }
+        if ($readAndClose) {
+            session_cache_limiter('');
+        }
+        meadowFinderStartSession($readAndClose);
+    }
+
+    if (!isset($_SESSION['user_id']) || !is_numeric((string) $_SESSION['user_id'])) {
         return null;
     }
 
