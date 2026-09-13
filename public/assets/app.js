@@ -1372,13 +1372,19 @@ const meadowLayer = L.geoJSON([], {
 });
 const overviewLayer = L.layerGroup().addTo(map);
 let activeRequestController = null;
+let lastZoomRefreshAt = 0;
 
 function debounce(callback, delayMs) {
   let timeoutId = null;
-  return (...args) => {
+  const wrapped = (...args) => {
     window.clearTimeout(timeoutId);
     timeoutId = window.setTimeout(() => callback(...args), delayMs);
   };
+  wrapped.cancel = () => {
+    window.clearTimeout(timeoutId);
+    timeoutId = null;
+  };
+  return wrapped;
 }
 
 function sliderValue(id) {
@@ -2518,9 +2524,17 @@ document.addEventListener("keydown", (event) => {
 map.on("zoomend", () => {
   syncVisibleLayer();
   syncCadastralKnPointerCursor();
+  lastZoomRefreshAt = performance.now();
+  debouncedRefresh.cancel();
+  void refreshMeadows();
 });
 map.on("movestart", hideMapContextMenu);
-map.on("moveend", debouncedRefresh);
+map.on("moveend", () => {
+  if (performance.now() - lastZoomRefreshAt < 80) {
+    return;
+  }
+  debouncedRefresh();
+});
 map.on("zoomstart", hideMapContextMenu);
 window.addEventListener("resize", hideMapContextMenu);
 window.addEventListener("resize", syncBasemapControlState);

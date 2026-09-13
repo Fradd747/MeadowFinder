@@ -6,6 +6,10 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/session_bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
+session_cache_limiter('');
+if (function_exists('ob_gzhandler') && !ini_get('zlib.output_compression')) {
+    ob_start('ob_gzhandler');
+}
 
 const POLYGON_RESULT_LIMIT = 2500;
 
@@ -24,6 +28,19 @@ const SMALL_CLUSTER_NEIGHBOUR_MERGE_PX = 400.0;
 const CLUSTER_BBOX_INFLATE_SPAN_FRACTION = 0.2;
 const CLUSTER_BBOX_INFLATE_MIN_PAD_LAT_DEG = 0.0045;
 const CLUSTER_BBOX_INFLATE_MIN_PAD_LNG_DEG = 0.007;
+
+/** Keep this mapping in sync with CLUSTER_TIERS in prepare_meadows.py. */
+const CLUSTER_TIER_GRID = [
+    5 => [8, 8],
+    6 => [10, 10],
+    7 => [12, 12],
+    8 => [16, 16],
+    9 => [24, 24],
+    10 => [36, 36],
+    11 => [72, 72],
+    12 => [128, 128],
+    13 => [192, 192],
+];
 
 function respondWithError(int $statusCode, string $message): never
 {
@@ -189,6 +206,170 @@ function clusterTierForRequest(int $zoom): int
     return 13;
 }
 
+/**
+ * Inclusive bucket index range covering a WGS84 bbox, padded by one cell.
+ *
+ * @return array{0: int, 1: int, 2: int, 3: int} minX, minY, maxX, maxY
+ */
+function clusterBucketRangeForBbox(int $tier, float $west, float $south, float $east, float $north): array
+{
+    $grid = CLUSTER_TIER_GRID[$tier] ?? CLUSTER_TIER_GRID[13];
+    [$columns, $rows] = $grid;
+    $lngStep = (CZECH_REPUBLIC_EAST - CZECH_REPUBLIC_WEST) / $columns;
+    $latStep = (CZECH_REPUBLIC_NORTH - CZECH_REPUBLIC_SOUTH) / $rows;
+
+    $bucket = static function (float $value, float $start, float $step, int $buckets): int {
+        if ($step <= 0.0) {
+            return 0;
+        }
+
+        return (int) min($buckets - 1, max(0, floor(($value - $start) / $step)));
+    };
+
+    $minX = $bucket($west, CZECH_REPUBLIC_WEST, $lngStep, $columns);
+    $maxX = $bucket($east, CZECH_REPUBLIC_WEST, $lngStep, $columns);
+    $minY = $bucket($south, CZECH_REPUBLIC_SOUTH, $latStep, $rows);
+    $maxY = $bucket($north, CZECH_REPUBLIC_SOUTH, $latStep, $rows);
+
+    $minX = max(0, $minX - 1);
+    $maxX = min($columns - 1, $maxX + 1);
+    $minY = max(0, $minY - 1);
+    $maxY = min($rows - 1, $maxY + 1);
+
+    return [$minX, $minY, $maxX, $maxY];
+}
+
+function bindStatementValues(PDOStatement $statement, array $params): void
+{
+    foreach ($params as $key => $value) {
+        if (is_int($value)) {
+            $statement->bindValue($key, $value, PDO::PARAM_INT);
+            continue;
+        }
+
+        $statement->bindValue($key, $value);
+    }
+}
+
+function isMissingIndexException(PDOException $exception): bool
+{
+    $driverCode = (int) ($exception->errorInfo[1] ?? 0);
+    if ($driverCode === 1176) {
+        return true;
+    }
+
+    return str_contains($exception->getMessage(), "doesn't exist in table");
+}
+
+function pdoFetchAll(PDO $pdo, string $sql, array $params, ?int $limit = null): array
+{
+    $run = static function (string $query) use ($pdo, $params, $limit): array {
+        $statement = $pdo->prepare($query);
+        bindStatementValues($statement, $params);
+        if ($limit !== null) {
+            $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        }
+        $statement->execute();
+
+        return $statement->fetchAll();
+    };
+
+    try {
+        return $run($sql);
+    } catch (PDOException $exception) {
+        $fallbackSql = preg_replace('/\sFORCE INDEX \([^)]+\)/', '', $sql);
+        if (!is_string($fallbackSql) || $fallbackSql === $sql || !isMissingIndexException($exception)) {
+            throw $exception;
+        }
+
+        return $run($fallbackSql);
+    }
+}
+
+function fetchUnfilteredClusterRows(
+    PDO $pdo,
+    int $clusterTier,
+    float $west,
+    float $south,
+    float $east,
+    float $north
+): array {
+    [$minX, $minY, $maxX, $maxY] = clusterBucketRangeForBbox($clusterTier, $west, $south, $east, $north);
+    $sql = '
+        SELECT
+            bucket_x,
+            bucket_y,
+            representative_lat,
+            representative_lng,
+            meadow_count
+        FROM meadow_cluster_bucket_points
+        WHERE cluster_tier = :clusterTier
+          AND bucket_x BETWEEN :minX AND :maxX
+          AND bucket_y BETWEEN :minY AND :maxY
+    ';
+    $statement = $pdo->prepare($sql);
+    $statement->bindValue(':clusterTier', $clusterTier, PDO::PARAM_INT);
+    $statement->bindValue(':minX', $minX, PDO::PARAM_INT);
+    $statement->bindValue(':maxX', $maxX, PDO::PARAM_INT);
+    $statement->bindValue(':minY', $minY, PDO::PARAM_INT);
+    $statement->bindValue(':maxY', $maxY, PDO::PARAM_INT);
+    $statement->execute();
+
+    return $statement->fetchAll();
+}
+
+function fetchFilteredClusterRows(PDO $pdo, string $clusterWhereSql, array $clusterParams): array
+{
+    $sql = '
+        SELECT
+            cm.bucket_x,
+            cm.bucket_y,
+            AVG(m.centroid_lat) AS representative_lat,
+            AVG(m.centroid_lng) AS representative_lng,
+            COUNT(*) AS meadow_count
+        FROM meadows m
+        INNER JOIN meadow_cluster_memberships cm
+            ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
+        WHERE ' . $clusterWhereSql . '
+        GROUP BY cm.bucket_x, cm.bucket_y
+    ';
+
+    return pdoFetchAll($pdo, $sql, $clusterParams);
+}
+
+/**
+ * @return array<string, true>
+ */
+function fetchFavouriteClusterKeys(
+    PDO $pdo,
+    int $userId,
+    string $clusterWhereSql,
+    array $clusterParams
+): array {
+    $sql = '
+        SELECT DISTINCT cm.bucket_x, cm.bucket_y
+        FROM user_favourite_meadows f
+        INNER JOIN meadows m ON m.source_id = f.source_id
+        INNER JOIN meadow_cluster_memberships cm
+            ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
+        WHERE f.user_id = :favUser
+          AND ' . $clusterWhereSql . '
+    ';
+    $statement = $pdo->prepare($sql);
+    bindStatementValues($statement, $clusterParams + [':favUser' => $userId]);
+    $statement->execute();
+
+    $keys = [];
+    foreach ($statement->fetchAll() as $row) {
+        if (!isset($row['bucket_x'], $row['bucket_y']) || !is_numeric((string) $row['bucket_x']) || !is_numeric((string) $row['bucket_y'])) {
+            continue;
+        }
+        $keys[clusterBucketKey((int) $row['bucket_x'], (int) $row['bucket_y'])] = true;
+    }
+
+    return $keys;
+}
+
 function normalizeClusterRows(array $rows, bool $includeFavourite): array
 {
     $clusters = [];
@@ -343,6 +524,14 @@ function mergeSmallNeighbourClusters(array $clusters, int $zoom): array
 }
 
 try {
+    $sessionUserId = meadowFinderSessionUserId(true);
+    header('Vary: Accept-Encoding, Cookie');
+    if ($sessionUserId !== null) {
+        header('Cache-Control: private, no-store');
+    } else {
+        header('Cache-Control: public, max-age=30');
+    }
+
     $config = meadowFinderConfig();
     $pdo = meadowFinderPdo();
 
@@ -454,9 +643,6 @@ try {
         array_slice($where, 1)
     );
 
-    $sessionUserId = meadowFinderSessionUserId();
-    session_write_close();
-
     $features = [];
 
     if ($mode === 'clusters') {
@@ -473,109 +659,48 @@ try {
             ':clusterNorth' => $clusterNorth,
         ];
 
-        if ($sessionUserId !== null) {
-            $clusterParams[':favUser'] = $sessionUserId;
-            if ($hasClusterFilters) {
-                $sql = '
-                    SELECT
-                        cm.bucket_x,
-                        cm.bucket_y,
-                        AVG(m.centroid_lat) AS representative_lat,
-                        AVG(m.centroid_lng) AS representative_lng,
-                        COUNT(*) AS meadow_count,
-                        MAX(CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS has_favourite
-                    FROM meadows m
-                    INNER JOIN meadow_cluster_memberships cm
-                        ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
-                    LEFT JOIN user_favourite_meadows f
-                        ON f.source_id = m.source_id AND f.user_id = :favUser
-                    WHERE ' . buildWhereClause($clusterWhere) . '
-                    GROUP BY cm.bucket_x, cm.bucket_y
-                ';
-            } else {
-                $sql = '
-                    SELECT
-                        cm.bucket_x,
-                        cm.bucket_y,
-                        bp.representative_lat,
-                        bp.representative_lng,
-                        COUNT(*) AS meadow_count,
-                        MAX(CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS has_favourite
-                    FROM meadows m
-                    INNER JOIN meadow_cluster_memberships cm
-                        ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
-                    INNER JOIN meadow_cluster_bucket_points bp
-                        ON bp.cluster_tier = cm.cluster_tier
-                        AND bp.bucket_x = cm.bucket_x
-                        AND bp.bucket_y = cm.bucket_y
-                    LEFT JOIN user_favourite_meadows f
-                        ON f.source_id = m.source_id AND f.user_id = :favUser
-                    WHERE ' . buildWhereClause($clusterWhere) . '
-                    GROUP BY
-                        cm.bucket_x,
-                        cm.bucket_y,
-                        bp.representative_lat,
-                        bp.representative_lng
-                ';
-            }
+        if ($hasClusterFilters) {
+            $clusterRows = fetchFilteredClusterRows($pdo, buildWhereClause($clusterWhere), $clusterParams);
         } else {
-            if ($hasClusterFilters) {
-                $sql = '
-                    SELECT
-                        cm.bucket_x,
-                        cm.bucket_y,
-                        AVG(m.centroid_lat) AS representative_lat,
-                        AVG(m.centroid_lng) AS representative_lng,
-                        COUNT(*) AS meadow_count
-                    FROM meadows m
-                    INNER JOIN meadow_cluster_memberships cm
-                        ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
-                    WHERE ' . buildWhereClause($clusterWhere) . '
-                    GROUP BY cm.bucket_x, cm.bucket_y
-                ';
-            } else {
-                $sql = '
-                    SELECT
-                        cm.bucket_x,
-                        cm.bucket_y,
-                        bp.representative_lat,
-                        bp.representative_lng,
-                        COUNT(*) AS meadow_count
-                    FROM meadows m
-                    INNER JOIN meadow_cluster_memberships cm
-                        ON cm.meadow_id = m.id AND cm.cluster_tier = :clusterTier
-                    INNER JOIN meadow_cluster_bucket_points bp
-                        ON bp.cluster_tier = cm.cluster_tier
-                        AND bp.bucket_x = cm.bucket_x
-                        AND bp.bucket_y = cm.bucket_y
-                    WHERE ' . buildWhereClause($clusterWhere) . '
-                    GROUP BY
-                        cm.bucket_x,
-                        cm.bucket_y,
-                        bp.representative_lat,
-                        bp.representative_lng
-                ';
-            }
+            $clusterRows = fetchUnfilteredClusterRows(
+                $pdo,
+                $clusterTier,
+                $clusterWest,
+                $clusterSouth,
+                $clusterEast,
+                $clusterNorth
+            );
         }
 
-        $statement = $pdo->prepare($sql);
-        foreach ($clusterParams as $key => $value) {
-            $statement->bindValue($key, $value);
+        $includeFavourite = $sessionUserId !== null;
+        if ($includeFavourite) {
+            $favouriteKeys = fetchFavouriteClusterKeys(
+                $pdo,
+                $sessionUserId,
+                buildWhereClause($clusterWhere),
+                $clusterParams
+            );
+            foreach ($clusterRows as &$clusterRow) {
+                $bucketX = isset($clusterRow['bucket_x']) ? (int) $clusterRow['bucket_x'] : 0;
+                $bucketY = isset($clusterRow['bucket_y']) ? (int) $clusterRow['bucket_y'] : 0;
+                $clusterRow['has_favourite'] = isset($favouriteKeys[clusterBucketKey($bucketX, $bucketY)]) ? 1 : 0;
+            }
+            unset($clusterRow);
         }
-        $statement->execute();
-        $clusters = normalizeClusterRows($statement->fetchAll(), $sessionUserId !== null);
+
+        $clusters = normalizeClusterRows($clusterRows, $includeFavourite);
         $clusters = mergeSmallNeighbourClusters($clusters, $zoom);
 
         foreach ($clusters as $cluster) {
-            $lat = $cluster['representative_lat'];
-            $lng = $cluster['representative_lng'];
+            $lat = round($cluster['representative_lat'], 6);
+            $lng = round($cluster['representative_lng'], 6);
 
             $props = [
                 'centroid_lat' => $lat,
                 'centroid_lng' => $lng,
                 'cluster_count' => $cluster['meadow_count'],
             ];
-            if ($sessionUserId !== null) {
+            if ($includeFavourite) {
                 $props['has_favourite'] = $cluster['has_favourite'];
             }
 
@@ -614,7 +739,7 @@ try {
                     m.centroid_lng,
                     g.geom_geojson,
                     (CASE WHEN f.source_id IS NOT NULL THEN 1 ELSE 0 END) AS is_favourite
-                FROM meadows m
+                FROM meadows m FORCE INDEX (idx_meadows_bbox_polygon)
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
                 LEFT JOIN user_favourite_meadows f
                     ON f.source_id = m.source_id AND f.user_id = :favUser
@@ -646,7 +771,7 @@ try {
                     m.centroid_lat,
                     m.centroid_lng,
                     g.geom_geojson
-                FROM meadows m
+                FROM meadows m FORCE INDEX (idx_meadows_bbox_polygon)
                 INNER JOIN meadow_geometries g ON g.meadow_id = m.id
                 WHERE ' . buildWhereClause($polygonWhere) . '
                 ORDER BY m.area_m2 DESC
@@ -654,16 +779,7 @@ try {
             ';
         }
 
-        $statement = $pdo->prepare($sql);
-        foreach ($polyParams as $key => $value) {
-            if ($key === ':limit') {
-                continue;
-            }
-            $statement->bindValue($key, $value);
-        }
-        $statement->bindValue(':limit', POLYGON_RESULT_LIMIT, PDO::PARAM_INT);
-        $statement->execute();
-        $rows = $statement->fetchAll();
+        $rows = pdoFetchAll($pdo, $sql, $polyParams, POLYGON_RESULT_LIMIT);
 
         foreach ($rows as $row) {
             try {
@@ -715,8 +831,9 @@ try {
                 'bbox' => [$west, $south, $east, $north],
             ],
         ],
-        JSON_THROW_ON_ERROR
+        JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
     );
 } catch (Throwable $exception) {
+    error_log('meadows.php: ' . $exception->getMessage());
     respondWithError(500, 'Došlo k chybě serveru.');
 }
